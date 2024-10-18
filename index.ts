@@ -5,6 +5,7 @@ import { Hono } from 'hono'
 import { serveStatic } from 'hono/serve-static'
 import type { WSContext } from 'hono/ws'
 import { parseCommands } from './utilities/parseCommands.ts'
+import { transformCommandsToCanvases } from './utilities/transformCommandsToCanvases.ts'
 
 // @TODO: CORS
 
@@ -19,13 +20,20 @@ const webSocketClients = new Set<WSContext>()
 app.post('/cgi-bin/epos/service.cgi', async (context) => {
 	// @TODO: Validate headers and body
 	const body = await (await context.req.blob()).text()
-	const commands = body.match(new RegExp('<command>(.*)</command>'))?.at(1)
-	if (!commands) {
+	const commandsAsHexString = body
+		.match(new RegExp('<command>(.*)</command>'))
+		?.at(1)
+	if (!commandsAsHexString) {
 		throw new Error('Invalid commands')
 	}
-	const binaryCommands = Buffer.from(commands, 'hex')
-	const list = parseCommands(binaryCommands)
-	console.log(list)
+	const binaryCommands = Buffer.from(commandsAsHexString, 'hex')
+	const { commands } = parseCommands(binaryCommands)
+	const canvases = transformCommandsToCanvases(commands, printerDotsPerLine)
+	canvases.forEach((canvas) => {
+		webSocketClients.forEach((client) => {
+			client.send(JSON.stringify({ image: canvas.canvas.toDataURL() }))
+		})
+	})
 
 	context.header('Content-Type', 'text/xml')
 	return context.body(
