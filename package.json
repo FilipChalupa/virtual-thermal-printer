@@ -4,7 +4,8 @@
 	"description": "",
 	"type": "module",
 	"scripts": {
-		"start": "node --experimental-strip-types index.ts"
+		"start": "node --experimental-strip-types index.ts",
+		"dev": "nodemon --exec node --loader ts-node/esm index.ts"
 	},
 	"repository": {
 		"type": "git",
@@ -19,5 +20,10 @@
 	"dependencies": {
 		"@hono/node-server": "^1.13.2",
 		"hono": "^4.6.5"
+	},
+	"devDependencies": {
+		"nodemon": "^3.1.7",
+		"ts-node": "^10.9.2",
+		"typescript": "^5.6.3"
 	}
 }
