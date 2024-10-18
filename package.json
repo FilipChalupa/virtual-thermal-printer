@@ -5,7 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"start": "node --experimental-strip-types index.ts",
-		"dev": "nodemon --exec node --loader ts-node/esm index.ts"
+		"dev": "nodemon --exec node --experimental-strip-types index.ts"
 	},
 	"repository": {
 		"type": "git",
@@ -24,7 +24,6 @@
 	},
 	"devDependencies": {
 		"nodemon": "^3.1.7",
-		"ts-node": "^10.9.2",
 		"typescript": "^5.6.3"
 	}
 }
