@@ -1,0 +1,23 @@
+{
+	"name": "virtual-thermal-printer",
+	"version": "0.0.0",
+	"description": "",
+	"type": "module",
+	"scripts": {
+		"start": "node --experimental-strip-types index.ts"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/FilipChalupa/virtual-thermal-printer.git"
+	},
+	"author": "",
+	"license": "ISC",
+	"bugs": {
+		"url": "https://github.com/FilipChalupa/virtual-thermal-printer/issues"
+	},
+	"homepage": "https://github.com/FilipChalupa/virtual-thermal-printer#readme",
+	"dependencies": {
+		"@hono/node-server": "^1.13.2",
+		"hono": "^4.6.5"
+	}
+}
