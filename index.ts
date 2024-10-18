@@ -5,13 +5,15 @@ import { Hono } from 'hono'
 import { serveStatic } from 'hono/serve-static'
 import type { WSContext } from 'hono/ws'
 
+// @TODO: CORS
+
 const app = new Hono()
 
 const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app })
 
 const webSocketClients = new Set<WSContext>()
 
-app.get('/cgi-bin/epos/service.cgi', (context) => {
+app.post('/cgi-bin/epos/service.cgi', (context) => {
 	context.header('Content-Type', 'text/xml')
 	return context.body(
 		'<?xml version="1.0" encoding="utf-8"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Header><parameter xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print"><devid>local_printer</devid><printjobid></printjobid></parameter></s:Header><s:Body><response success="true" code="" status="251658262" battery="0" xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print"></response></s:Body></s:Envelope>',
