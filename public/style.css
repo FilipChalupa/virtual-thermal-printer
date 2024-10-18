@@ -17,7 +17,37 @@ body {
 
 #images {
 	display: grid;
+	justify-content: center;
 	row-gap: 1em;
+}
+
+#images > div {
+	position: relative;
+	isolation: isolate;
+}
+
+@keyframes fade-out {
+	0% {
+		opacity: 0.7;
+	}
+	20% {
+		opacity: 1;
+	}
+	100% {
+		opacity: 0;
+		visibility: hidden;
+	}
+}
+#images > div::before {
+	content: '';
+	position: absolute;
+	inset: -0.5em;
+	z-index: -1;
+	background-color: rgba(255, 251, 0, 0.688);
+	opacity: 1;
+	animation-name: fade-out;
+	animation-fill-mode: forwards;
+	animation-duration: 0.8s; /* @TODO: based on the user's system preferences */
 }
 
 #images img {

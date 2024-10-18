@@ -15,9 +15,11 @@ const connect = () => {
 	webSocket.addEventListener('message', (event) => {
 		const data = JSON.parse(event.data)
 		if (data.type === 'image') {
+			const wrapper = document.createElement('div')
 			const image = document.createElement('img')
 			image.src = data.url
-			images.prepend(image)
+			wrapper.appendChild(image)
+			images.prepend(wrapper)
 		} else {
 			console.log('Message from server:', event.data)
 		}

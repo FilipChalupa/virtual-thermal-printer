@@ -9,6 +9,8 @@ import { transformCommandsToCanvases } from './utilities/transformCommandsToCanv
 
 // @TODO: CORS
 
+let lastImagePayload: string | null = null // Maybe remove - debug only
+
 const printerDotsPerLine = 576 // @TODO: Parametrize this
 
 const app = new Hono()
@@ -30,11 +32,14 @@ app.post('/cgi-bin/epos/service.cgi', async (context) => {
 	const { commands } = parseCommands(binaryCommands)
 	const canvases = transformCommandsToCanvases(commands, printerDotsPerLine)
 	canvases.forEach((canvas) => {
-		webSocketClients.forEach((client) => {
-			client.send(
-				JSON.stringify({ type: 'image', url: canvas.canvas.toDataURL() }),
-			)
+		const payload = JSON.stringify({
+			type: 'image',
+			url: canvas.canvas.toDataURL(),
 		})
+		lastImagePayload = payload
+		for (const client of webSocketClients) {
+			client.send(payload)
+		}
 	})
 
 	context.header('Content-Type', 'text/xml')
@@ -58,6 +63,11 @@ app.get(
 						message: 'Hello from server!',
 					}),
 				)
+				if (lastImagePayload) {
+					for (const client of webSocketClients) {
+						client.send(lastImagePayload)
+					}
+				}
 			},
 			onClose: (event, context) => {
 				console.log('Connection closed')
