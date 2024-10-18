@@ -31,7 +31,9 @@ app.post('/cgi-bin/epos/service.cgi', async (context) => {
 	const canvases = transformCommandsToCanvases(commands, printerDotsPerLine)
 	canvases.forEach((canvas) => {
 		webSocketClients.forEach((client) => {
-			client.send(JSON.stringify({ image: canvas.canvas.toDataURL() }))
+			client.send(
+				JSON.stringify({ type: 'image', url: canvas.canvas.toDataURL() }),
+			)
 		})
 	})
 
@@ -50,7 +52,12 @@ app.get(
 			},
 			onMessage(event, context) {
 				console.log(`Message from client: ${event.data}`)
-				context.send('Hello from server!')
+				context.send(
+					JSON.stringify({
+						type: 'message',
+						message: 'Hello from server!',
+					}),
+				)
 			},
 			onClose: (event, context) => {
 				console.log('Connection closed')

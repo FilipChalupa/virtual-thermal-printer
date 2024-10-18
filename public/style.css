@@ -6,10 +6,20 @@
 
 :root {
 	font-family: sans-serif;
+	overflow-y: scroll;
 }
 
 body {
 	max-width: 40rem;
 	margin-inline: auto;
 	padding-inline: 1rem;
+}
+
+#images {
+	display: grid;
+	row-gap: 1em;
+}
+
+#images img {
+	max-width: 100%;
 }
