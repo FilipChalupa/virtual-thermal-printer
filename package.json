@@ -19,6 +19,7 @@
 	"homepage": "https://github.com/FilipChalupa/virtual-thermal-printer#readme",
 	"dependencies": {
 		"@hono/node-server": "^1.13.2",
+		"@hono/node-ws": "^1.0.4",
 		"hono": "^4.6.5"
 	},
 	"devDependencies": {
