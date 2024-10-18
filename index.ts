@@ -13,7 +13,16 @@ const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app })
 
 const webSocketClients = new Set<WSContext>()
 
-app.post('/cgi-bin/epos/service.cgi', (context) => {
+app.post('/cgi-bin/epos/service.cgi', async (context) => {
+	// @TODO: Validate headers and body
+	const body = await (await context.req.blob()).text()
+	const commands = body.match(new RegExp('<command>(.*)</command>'))?.at(1)
+	if (!commands) {
+		throw new Error('Invalid commands')
+	}
+	const binaryCommands = Buffer.from(commands, 'hex')
+	console.log(binaryCommands.toString('hex').substring(0, 100)) // @TODO: handle commands
+
 	context.header('Content-Type', 'text/xml')
 	return context.body(
 		'<?xml version="1.0" encoding="utf-8"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Header><parameter xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print"><devid>local_printer</devid><printjobid></printjobid></parameter></s:Header><s:Body><response success="true" code="" status="251658262" battery="0" xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print"></response></s:Body></s:Envelope>',
