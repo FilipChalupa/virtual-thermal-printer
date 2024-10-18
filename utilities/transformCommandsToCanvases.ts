@@ -70,6 +70,9 @@ const transformCommandsToCanvas = (
 
 	const canvas = createCanvas(width, height)
 	const canvasContext = canvas.getContext('2d')
+	canvasContext.rect(0, 0, width, height)
+	canvasContext.fillStyle = 'white'
+	canvasContext.fill()
 	let verticalCursorPosition = 0
 
 	for (const command of commands) {
