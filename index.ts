@@ -4,8 +4,11 @@ import { readFileSync } from 'fs'
 import { Hono } from 'hono'
 import { serveStatic } from 'hono/serve-static'
 import type { WSContext } from 'hono/ws'
+import { parseCommands } from './utilities/parseCommands.ts'
 
 // @TODO: CORS
+
+const printerDotsPerLine = 576 // @TODO: Parametrize this
 
 const app = new Hono()
 
@@ -21,7 +24,8 @@ app.post('/cgi-bin/epos/service.cgi', async (context) => {
 		throw new Error('Invalid commands')
 	}
 	const binaryCommands = Buffer.from(commands, 'hex')
-	console.log(binaryCommands.toString('hex').substring(0, 100)) // @TODO: handle commands
+	const list = parseCommands(binaryCommands)
+	console.log(list)
 
 	context.header('Content-Type', 'text/xml')
 	return context.body(
