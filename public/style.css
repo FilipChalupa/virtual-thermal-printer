@@ -24,6 +24,8 @@ body {
 #images > div {
 	position: relative;
 	isolation: isolate;
+	padding: 1.5em;
+	border: 1px solid #c6c6c6;
 }
 
 @keyframes fade-out {
@@ -48,6 +50,13 @@ body {
 	animation-name: fade-out;
 	animation-fill-mode: forwards;
 	animation-duration: 0.8s; /* @TODO: based on the user's system preferences */
+}
+#images > div::after {
+	content: '';
+	background-color: #ffffff;
+	position: absolute;
+	z-index: -1;
+	inset: 0;
 }
 
 #images img {
