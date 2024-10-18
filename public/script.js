@@ -1,3 +1,4 @@
+const imagesCountLimit = 10
 const images = document.querySelector('#images')
 
 const delay = (milliseconds) =>
@@ -15,6 +16,11 @@ const connect = () => {
 	webSocket.addEventListener('message', (event) => {
 		const data = JSON.parse(event.data)
 		if (data.type === 'image') {
+			Array.from(images.childNodes)
+				.slice(imagesCountLimit - 1)
+				.forEach((child) => {
+					child.remove()
+				})
 			const wrapper = document.createElement('div')
 			const image = document.createElement('img')
 			image.src = data.url
