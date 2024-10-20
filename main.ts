@@ -9,7 +9,8 @@ import { transformCommandsToCanvases } from './utilities/transformCommandsToCanv
 
 const flags = parseArgs(Deno.args, {
 	string: ['port'],
-	default: { port: '80' },
+	boolean: ['recall'],
+	default: { port: '80', recall: false },
 })
 
 const port = parseInt(flags.port)
@@ -92,7 +93,7 @@ app.get(
 						message: 'Hello from server!',
 					}),
 				)
-				if (lastImagePayload) {
+				if (lastImagePayload && flags.recall) {
 					for (const client of webSocketClients) {
 						client.send(lastImagePayload)
 					}
