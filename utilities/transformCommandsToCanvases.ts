@@ -1,4 +1,4 @@
-import { createCanvas } from 'npm:@napi-rs/canvas'
+import { createCanvas } from 'https://deno.land/x/canvas/mod.ts'
 import { parseCommands } from './parseCommands.ts'
 
 type Command = ReturnType<typeof parseCommands>['commands'][number]

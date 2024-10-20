@@ -1,4 +1,4 @@
-import { createCanvas } from 'npm:@napi-rs/canvas'
+import { createCanvas } from 'https://deno.land/x/canvas/mod.ts'
 
 const anyToken = 'any'
 
