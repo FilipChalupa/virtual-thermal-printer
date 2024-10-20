@@ -1,4 +1,4 @@
-import { createCanvas } from '@napi-rs/canvas'
+import { createCanvas } from 'npm:@napi-rs/canvas'
 
 const anyToken = 'any'
 
@@ -15,15 +15,15 @@ const patternNames = Object.keys(commandPatternStarts) as Array<
 	keyof typeof commandPatternStarts
 >
 
-const extractFirstCommand = (commands: Buffer) => {
+const extractFirstCommand = (bytes: Uint8Array) => {
 	const startingCommandName = (() => {
 		for (const command of patternNames) {
 			const pattern = commandPatternStarts[command]
-			if (pattern.length > commands.length) {
+			if (pattern.length > bytes.length) {
 				continue
 			}
 			for (let i = 0; i < pattern.length; i++) {
-				if (pattern[i] !== commands[i]) {
+				if (pattern[i] !== bytes[i]) {
 					break
 				}
 				if (i === pattern.length - 1) {
@@ -37,10 +37,10 @@ const extractFirstCommand = (commands: Buffer) => {
 	}
 	const command = (() => {
 		if (startingCommandName === 'image') {
-			const xL = commands.at(commandPatternStarts.image.length)
-			const xH = commands.at(commandPatternStarts.image.length + 1)
-			const yL = commands.at(commandPatternStarts.image.length + 2)
-			const yH = commands.at(commandPatternStarts.image.length + 3)
+			const xL = bytes.at(commandPatternStarts.image.length)
+			const xH = bytes.at(commandPatternStarts.image.length + 1)
+			const yL = bytes.at(commandPatternStarts.image.length + 2)
+			const yH = bytes.at(commandPatternStarts.image.length + 3)
 			if (
 				xL === undefined ||
 				xH === undefined ||
@@ -57,7 +57,7 @@ const extractFirstCommand = (commands: Buffer) => {
 			const context = canvas.getContext('2d')
 
 			for (let index = 0; index < bytesOfImage; index++) {
-				const byte = commands.at(commandPatternStarts.image.length + 4 + index)
+				const byte = bytes.at(commandPatternStarts.image.length + 4 + index)
 				if (byte === undefined) {
 					return null
 				}
@@ -87,24 +87,24 @@ const extractFirstCommand = (commands: Buffer) => {
 	const { length, ...rest } = command
 	return {
 		command: rest,
-		restOfCommands: commands.slice(length),
+		restOfCommands: bytes.slice(length),
 	}
 }
 
-export const parseCommands = (commands: Buffer) => {
+export const parseCommands = (bytes: Uint8Array) => {
 	const parsedCommands: Array<
 		NonNullable<ReturnType<typeof extractFirstCommand>>['command']
 	> = []
 
-	let unprocessedCommands = commands
+	let unprocessedBytes = bytes
 	while (true) {
-		const command = extractFirstCommand(unprocessedCommands)
+		const command = extractFirstCommand(unprocessedBytes)
 		if (command === null) {
 			break
 		}
-		unprocessedCommands = command.restOfCommands
+		unprocessedBytes = command.restOfCommands
 		parsedCommands.push(command.command)
 	}
 
-	return { commands: parsedCommands, unprocessed: unprocessedCommands }
+	return { commands: parsedCommands, unprocessed: unprocessedBytes }
 }

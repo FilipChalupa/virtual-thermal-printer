@@ -1,4 +1,4 @@
-import { createCanvas } from '@napi-rs/canvas'
+import { createCanvas } from 'npm:@napi-rs/canvas'
 import { parseCommands } from './parseCommands.ts'
 
 type Command = ReturnType<typeof parseCommands>['commands'][number]

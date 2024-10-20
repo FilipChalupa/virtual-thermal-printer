@@ -1,9 +1,8 @@
-import { serve } from '@hono/node-server'
-import { createNodeWebSocket } from '@hono/node-ws'
-import { readFileSync } from 'fs'
 import { Hono } from 'hono'
-import { serveStatic } from 'hono/serve-static'
+import { serveStatic, upgradeWebSocket } from 'hono/deno'
 import type { WSContext } from 'hono/ws'
+import { decodeHex } from 'https://deno.land/std/encoding/hex.ts'
+import { Buffer } from 'https://deno.land/std/io/buffer.ts'
 import { parseCommands } from './utilities/parseCommands.ts'
 import { transformCommandsToCanvases } from './utilities/transformCommandsToCanvases.ts'
 
@@ -15,21 +14,23 @@ const printerDotsPerLine = 576 // @TODO: Parametrize this
 
 const app = new Hono()
 
-const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app })
-
 const webSocketClients = new Set<WSContext>()
 
 app.post('/cgi-bin/epos/service.cgi', async (context) => {
-	// @TODO: Validate headers and body
-	const body = await (await context.req.blob()).text()
-	const commandsAsHexString = body
-		.match(new RegExp('<command>(.*)</command>'))
-		?.at(1)
-	if (!commandsAsHexString) {
-		throw new Error('Invalid commands')
-	}
-	const binaryCommands = Buffer.from(commandsAsHexString, 'hex')
-	const { commands } = parseCommands(binaryCommands)
+	const { commands } = parseCommands(
+		await (async () => {
+			// @TODO: Validate headers and body
+			const body = await (await context.req.blob()).text()
+			const commandsAsHexString = body
+				.match(new RegExp('<command>(.*)</command>'))
+				?.at(1)
+			if (!commandsAsHexString) {
+				throw new Error('Invalid commands')
+			}
+			const binaryCommands = new Buffer(decodeHex(commandsAsHexString))
+			return binaryCommands.bytes()
+		})(),
+	)
 	const canvases = transformCommandsToCanvases(commands, printerDotsPerLine)
 	canvases.forEach((canvas) => {
 		const payload = JSON.stringify({
@@ -51,7 +52,7 @@ app.get(
 	'/stream',
 	upgradeWebSocket(() => {
 		return {
-			onOpen: (event, context) => {
+			onOpen: (_event, context) => {
 				console.log('Connection opened')
 				webSocketClients.add(context)
 			},
@@ -69,7 +70,7 @@ app.get(
 					}
 				}
 			},
-			onClose: (event, context) => {
+			onClose: (_event, context) => {
 				console.log('Connection closed')
 				webSocketClients.delete(context)
 			},
@@ -80,21 +81,19 @@ app.use(
 	'/*',
 	serveStatic({
 		root: './public',
-		getContent: async (path) => {
-			return readFileSync(path, 'utf-8')
-		},
 	}),
 )
 
-const server = serve(
+Deno.serve(
 	{
-		fetch: app.fetch,
 		port:
 			80 *
 			100 /* The intended port is 80 but Linux gives permission denied on such a privileged port */,
+		onListen(localAddress) {
+			console.log(
+				`Listening to EPOS on http://${localAddress.hostname}:${localAddress.port}`,
+			)
+		},
 	},
-	(info) => {
-		console.log(`Listening to EPOS on http://localhost:${info.port}`)
-	},
+	app.fetch,
 )
-injectWebSocket(server)
