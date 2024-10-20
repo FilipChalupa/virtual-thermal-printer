@@ -14,6 +14,8 @@ jobs:
           # - macos-latest # @TODO: uncomment once compile is fixed
           # - windows-latest # @TODO: uncomment once compile is fixed
     runs-on: ${{ matrix.os }}
+    permissions:
+      id-token: write # Needed for auth with Deno Deploy
     steps:
       - uses: actions/checkout@v4
       - uses: denoland/setup-deno@v2
@@ -35,3 +37,10 @@ jobs:
         with:
           path: ${{ env.DENO_DIR }}
           key: ${{ matrix.os }}-${{ hashFiles('deno.lock') }}
+      - name: Upload to Deno Deploy
+        if: matrix.os == 'ubuntu-latest' && github.ref == 'refs/heads/deploy'
+        uses: denoland/deployctl@v1
+        with:
+          project: virtual-thermal-printer
+          entrypoint: 'main.ts'
+          root: '.'
