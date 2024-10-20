@@ -1,5 +1,6 @@
 const imagesCountLimit = 10
 const images = document.querySelector('#images')
+const disconnected = document.querySelector('#disconnected')
 
 const delay = (milliseconds) =>
 	new Promise((resolve) => setTimeout(resolve, milliseconds))
@@ -10,6 +11,7 @@ const connect = () => {
 
 	webSocket.addEventListener('open', () => {
 		console.log('Connected to server.')
+		disconnected.setAttribute('hidden', true)
 		webSocket.send('Hello from client!')
 	})
 
@@ -33,6 +35,7 @@ const connect = () => {
 
 	webSocket.addEventListener('close', async () => {
 		console.warn('Connection closed.')
+		disconnected.removeAttribute('hidden')
 		await delay(1000)
 		connect()
 	})

@@ -62,3 +62,13 @@ body {
 #images img {
 	max-width: 100%;
 }
+
+#disconnected {
+	position: fixed;
+	bottom: 1rem;
+	right: 1rem;
+	width: 1rem;
+	aspect-ratio: 1;
+	background-color: #ff0000;
+	border-radius: 50%;
+}
