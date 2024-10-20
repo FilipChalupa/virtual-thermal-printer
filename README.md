@@ -25,5 +25,5 @@ deno task dev
 
 https://virtual-thermal-printer.deno.dev/
 
-- Beware that the server is shared between all users so that they can see what you are printing.
-- @TODO: Server runs in multiple instances so you may be printing on a different instance than the one you are connected to in browser.
+> [!WARNING]
+> Beware that the server is shared between all users so that they can see what you are printing.

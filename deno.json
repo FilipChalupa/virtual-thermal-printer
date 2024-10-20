@@ -1,9 +1,9 @@
 {
 	"version": "0.0.0",
 	"tasks": {
-		"start": "deno run --allow-read --allow-sys --allow-ffi --allow-env --allow-net main.ts --port 8000",
-		"dev": "denon run --allow-read --allow-sys --allow-ffi --allow-env --allow-net main.ts --port 8000",
-		"compile": "deno compile --allow-read --allow-sys --allow-ffi --allow-env --allow-net main.ts"
+		"start": "deno run --allow-read --allow-sys --allow-ffi --allow-env --allow-net --unstable-broadcast-channel main.ts --port 8000",
+		"dev": "denon run --allow-read --allow-sys --allow-ffi --allow-env --allow-net --unstable-broadcast-channel main.ts --port 8000",
+		"compile": "deno compile --allow-read --allow-sys --allow-ffi --allow-env --allow-net --unstable-broadcast-channel main.ts"
 	},
 	"imports": {
 		"hono": "jsr:@hono/hono@^4.6.5"

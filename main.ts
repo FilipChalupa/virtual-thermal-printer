@@ -27,6 +27,26 @@ const app = new Hono()
 
 const webSocketClients = new Set<WSContext>()
 
+const instancesSynchronizationChannel = new BroadcastChannel('synchronization')
+
+const broadcastImagePayload = (payload: string) => {
+	lastImagePayload = payload
+	broadcastImagePayloadToWebSocketClients(payload)
+	instancesSynchronizationChannel.postMessage(payload)
+}
+
+const broadcastImagePayloadToWebSocketClients = (payload: string) => {
+	for (const client of webSocketClients) {
+		client.send(payload)
+	}
+}
+
+instancesSynchronizationChannel.addEventListener('message', (event) => {
+	const payload = event.data
+	lastImagePayload = payload
+	broadcastImagePayloadToWebSocketClients(payload)
+})
+
 app.post('/cgi-bin/epos/service.cgi', async (context) => {
 	const { commands } = parseCommands(
 		await (async () => {
@@ -48,10 +68,7 @@ app.post('/cgi-bin/epos/service.cgi', async (context) => {
 			type: 'image',
 			url: canvas.canvas.toDataURL(),
 		})
-		lastImagePayload = payload
-		for (const client of webSocketClients) {
-			client.send(payload)
-		}
+		broadcastImagePayload(payload)
 	})
 
 	context.header('Content-Type', 'text/xml')
