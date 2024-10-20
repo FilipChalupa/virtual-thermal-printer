@@ -14,20 +14,21 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: denoland/setup-deno@v2
-      # - name: Check formatting
-      #   if: matrix.os == 'ubuntu-latest'
-      #   run: deno fmt --check
-      # - name: Lint
-      #   if: matrix.os == 'ubuntu-latest'
-      #   run: deno lint
+      - name: Check formatting
+        if: matrix.os == 'ubuntu-latest'
+        run: deno fmt --check
+      - name: Lint
+        if: matrix.os == 'ubuntu-latest'
+        run: deno lint
       # @TODO: Create tests
       # - name: Test
       #   if: matrix.os == 'ubuntu-latest'
       #   run: deno test --allow-all
-      - name: Compile
-        run: deno task compile
-      # - name: Cache Deno dependencies
-      #   uses: actions/cache@v4
-      #   with:
-      #     path: ${{ env.DENO_DIR }}
-      #     key: ${{ matrix.os }}-${{ hashFiles('deno.lock') }}
+      # @TODO: Figure out how to compile
+      # - name: Compile
+      #   run: deno task compile
+      - name: Cache Deno dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.DENO_DIR }}
+          key: ${{ matrix.os }}-${{ hashFiles('deno.lock') }}
