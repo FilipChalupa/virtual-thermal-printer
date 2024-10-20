@@ -86,9 +86,8 @@ app.use(
 
 Deno.serve(
 	{
-		port:
-			80 *
-			100 /* The intended port is 80 but Linux gives permission denied on such a privileged port */,
+		port: 80 *
+			100, /* The intended port is 80 but Linux gives permission denied on such a privileged port */
 		onListen(localAddress) {
 			console.log(
 				`Listening to EPOS on http://${localAddress.hostname}:${localAddress.port}`,
