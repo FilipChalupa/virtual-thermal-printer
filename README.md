@@ -26,4 +26,5 @@ deno task dev
 https://virtual-thermal-printer.deno.dev/
 
 > [!WARNING]
-> Beware that the server is shared between all users so that they can see what you are printing.
+> Beware that the server is shared between all users so that they can see what
+> you are printing.
