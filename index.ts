@@ -3,8 +3,19 @@ import { serveStatic, upgradeWebSocket } from 'hono/deno'
 import type { WSContext } from 'hono/ws'
 import { decodeHex } from 'https://deno.land/std/encoding/hex.ts'
 import { Buffer } from 'https://deno.land/std/io/buffer.ts'
+import { parseArgs } from 'jsr:@std/cli/parse-args'
 import { parseCommands } from './utilities/parseCommands.ts'
 import { transformCommandsToCanvases } from './utilities/transformCommandsToCanvases.ts'
+
+const flags = parseArgs(Deno.args, {
+	string: ['port'],
+	default: { port: '80' },
+})
+
+const port = parseInt(flags.port)
+if (isNaN(port) || port < 1 || port > 65535) {
+	throw new Error('Invalid port')
+}
 
 // @TODO: CORS
 
@@ -86,8 +97,7 @@ app.use(
 
 Deno.serve(
 	{
-		port: 80 *
-			100, /* The intended port is 80 but Linux gives permission denied on such a privileged port */
+		port,
 		onListen(localAddress) {
 			console.log(
 				`Listening to EPOS on http://${localAddress.hostname}:${localAddress.port}`,

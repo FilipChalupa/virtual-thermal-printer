@@ -1,8 +1,8 @@
 {
 	"version": "0.0.0",
 	"tasks": {
-		"start": "deno run --allow-read --allow-sys --allow-ffi --allow-env --allow-net index.ts",
-		"dev": "denon run --allow-read --allow-sys --allow-ffi --allow-env --allow-net index.ts",
+		"start": "deno run --allow-read --allow-sys --allow-ffi --allow-env --allow-net index.ts --port 8000",
+		"dev": "denon run --allow-read --allow-sys --allow-ffi --allow-env --allow-net index.ts --port 8000",
 		"compile": "deno compile --allow-read --allow-sys --allow-ffi --allow-env --allow-net index.ts"
 	},
 	"imports": {
