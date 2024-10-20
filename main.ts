@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { cors } from 'hono/cors'
 import { serveStatic, upgradeWebSocket } from 'hono/deno'
 import type { WSContext } from 'hono/ws'
 import { decodeHex } from 'https://deno.land/std/encoding/hex.ts'
@@ -17,8 +18,6 @@ const port = parseInt(flags.port)
 if (isNaN(port) || port < 1 || port > 65535) {
 	throw new Error('Invalid port')
 }
-
-// @TODO: CORS
 
 let lastImagePayload: string | null = null // Maybe remove - debug only
 
@@ -48,7 +47,9 @@ instancesSynchronizationChannel.addEventListener('message', (event) => {
 	broadcastImagePayloadToWebSocketClients(payload)
 })
 
-app.post('/cgi-bin/epos/service.cgi', async (context) => {
+const eposEndpoint = '/cgi-bin/epos/service.cgi'
+app.use(eposEndpoint, cors())
+app.post(eposEndpoint, async (context) => {
 	const { commands } = parseCommands(
 		await (async () => {
 			// @TODO: Validate headers and body
