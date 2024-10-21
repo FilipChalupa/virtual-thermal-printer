@@ -123,9 +123,18 @@ Deno.serve(
 		port: eposPort,
 		onListen(localAddress) {
 			console.log(
-				`Listening to EPOS on http://${localAddress.hostname}:${localAddress.port}`,
+				`Listening to EPOS on http://${localAddress.hostname}:${localAddress.port}.`,
 			)
 		},
 	},
 	app.fetch,
 )
+
+const listener = Deno.listen({
+	port: escposPort,
+})
+console.log(`Listening to ESCPOS on 0.0.0.0:${escposPort}.`)
+for await (const r of listener) {
+	r.localAddr
+	r.remoteAddr
+}
