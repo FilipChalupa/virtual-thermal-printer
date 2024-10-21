@@ -9,14 +9,18 @@ import { parseCommands } from './utilities/parseCommands.ts'
 import { transformCommandsToCanvases } from './utilities/transformCommandsToCanvases.ts'
 
 const flags = parseArgs(Deno.args, {
-	string: ['port'],
+	string: ['epos-port', 'escpos-port'],
 	boolean: ['recall'],
-	default: { port: '80', recall: false },
+	default: { 'epos-port': '80', 'escpos-port': '9100', recall: false },
 })
 
-const port = parseInt(flags.port)
-if (isNaN(port) || port < 1 || port > 65535) {
-	throw new Error('Invalid port')
+const eposPort = parseInt(flags['epos-port'])
+if (isNaN(eposPort) || eposPort < 1 || eposPort > 65535) {
+	throw new Error('Invalid Epos port')
+}
+const escposPort = parseInt(flags['escpos-port'])
+if (isNaN(escposPort) || escposPort < 1 || escposPort > 65535) {
+	throw new Error('Invalid Escpos port')
 }
 
 let lastImagePayload: string | null = null // Maybe remove - debug only
@@ -116,7 +120,7 @@ app.use(
 
 Deno.serve(
 	{
-		port,
+		port: eposPort,
 		onListen(localAddress) {
 			console.log(
 				`Listening to EPOS on http://${localAddress.hostname}:${localAddress.port}`,
