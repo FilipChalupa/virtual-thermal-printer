@@ -134,7 +134,29 @@ const listener = Deno.listen({
 	port: escposPort,
 })
 console.log(`Listening to ESCPOS on 0.0.0.0:${escposPort}.`)
-for await (const r of listener) {
-	r.localAddr
-	r.remoteAddr
+const handleEscposClient = async (connection: Deno.Conn) => {
+	let unprocessedCommands = new Uint8Array()
+	const buffer = new Uint8Array(1024)
+	while (true) {
+		const count = await connection.read(buffer)
+		if (!count) {
+			// Connection closed
+			break
+		}
+		const { commands, unprocessed } = parseCommands(
+			await new Blob([unprocessedCommands, buffer.subarray(0, count)]).bytes(),
+		)
+		const canvases = transformCommandsToCanvases(commands, printerDotsPerLine)
+		unprocessedCommands = unprocessed
+		canvases.forEach((canvas) => {
+			const payload = JSON.stringify({
+				type: 'image',
+				url: canvas.canvas.toDataURL(),
+			})
+			broadcastImagePayload(payload)
+		})
+	}
+}
+for await (const connection of listener) {
+	handleEscposClient(connection)
 }
