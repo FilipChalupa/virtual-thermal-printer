@@ -9,6 +9,8 @@
 		"hono": "jsr:@hono/hono@^4.6.5",
 		"hono/cors": "jsr:@hono/hono@^4.6.5/cors",
 		"hono/deno": "jsr:@hono/hono@^4.6.5/deno",
-		"@std/cli/parse-args": "jsr:@std/cli@^1.0.0/parse-args"
+		"@std/cli/parse-args": "jsr:@std/cli@^1.0.0/parse-args",
+		"@std/assert/mod.ts": "https://deno.land/std@0.218.2/assert/mod.ts",
+		"iconv-lite": "https://esm.sh/iconv-lite@0.6.3"
 	}
 }

@@ -37,7 +37,7 @@ function connectWebSocket() {
         printerOutput.appendChild(canvas);
         printerOutput.scrollTop = printerOutput.scrollHeight;
       }
-    } catch (error) {
+    } catch (_error) {
       const p = document.createElement("p");
       p.textContent = message;
       printerOutput.appendChild(p);

@@ -1,4 +1,4 @@
-import iconv from "https://esm.sh/iconv-lite@0.6.3";
+import iconv from "iconv-lite";
 
 export enum Alignment {
   Left,
@@ -119,8 +119,8 @@ export function parseEscPos(command: Uint8Array, state: PrinterState): string | 
               if (i + 1 < command.length) {
                 const nextByte = command[i + 1];
                 if (nextByte === 0x30) { // 0
-                  const m = command[i + 2];
-                  const fn = command[i + 3];
+                  const _m = command[i + 2];
+                  const _fn = command[i + 3];
                   const xL = command[i + 4];
                   const xH = command[i + 5];
                   const yL = command[i + 6];
@@ -168,7 +168,8 @@ export function parseEscPos(command: Uint8Array, state: PrinterState): string | 
   return result;
 }
 
-export async function handleConnection(conn: Deno.Conn, connectedClients: Set<WebSocket>) {
+export async function handleConnection(conn: Deno.Conn, // deno-lint-ignore no-explicit-any
+connectedClients: Set<any>) {
   const remoteAddr = conn.remoteAddr;
   const remoteAddrString = remoteAddr.transport === "tcp" ? `${remoteAddr.hostname}:${remoteAddr.port}` : "unknown";
   console.log(`New connection from ${remoteAddrString}.`);

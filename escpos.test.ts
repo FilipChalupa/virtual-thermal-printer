@@ -1,6 +1,6 @@
-import { assertEquals } from "https://deno.land/std@0.218.2/assert/mod.ts";
+import { assertEquals } from "@std/assert/mod.ts";
 import { Alignment, parseEscPos, PrinterState } from "./escpos.ts";
-import iconv from "https://esm.sh/iconv-lite@0.6.3";
+import iconv from "iconv-lite";
 
 Deno.test("parseEscPos - Initialize Printer", () => {
   const command = new Uint8Array([0x1b, 0x40]);

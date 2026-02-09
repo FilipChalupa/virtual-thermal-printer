@@ -22,28 +22,33 @@ const app = new Hono()
 
 const eposEndpoint = '/cgi-bin/epos/service.cgi'
 app.use(eposEndpoint, cors())
-app.post(eposEndpoint, async (context) => {
+app.post(eposEndpoint, async (_context) => {
 	// @TODO
 })
-const connectedClients = new Set<WebSocket>();
+// deno-lint-ignore no-explicit-any
+const connectedClients = new Set<any>();
 
 app.get(
 	'/stream',
-	upgradeWebSocket((c) => {
+	upgradeWebSocket((_c) => {
 		return {
-			onOpen: (_evt, ws) => {
+			onOpen: (_evt, // deno-lint-ignore no-explicit-any
+				ws: any) => {
 				console.log("WebSocket opened.");
 				connectedClients.add(ws);
 			},
-			onMessage: (_evt, ws) => {
+			onMessage: (_evt, // deno-lint-ignore no-explicit-any
+				_ws: any) => {
 				// Do nothing for now
 			},
-			onClose: (_evt, ws) => {
+			onClose: (_evt, // deno-lint-ignore no-explicit-any
+				ws: any) => {
 				console.log("WebSocket closed.");
 				connectedClients.delete(ws);
 			},
-			onError: (evt, ws) => {
-				console.log("WebSocket error:", evt.message);
+			onError: (evt, // deno-lint-ignore no-explicit-any
+				ws: any) => {
+				console.log("WebSocket error:", (evt as ErrorEvent).message);
 				connectedClients.delete(ws);
 			},
 		};
