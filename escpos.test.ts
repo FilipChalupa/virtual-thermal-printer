@@ -1,5 +1,6 @@
 import { assertEquals } from "https://deno.land/std@0.218.2/assert/mod.ts";
 import { Alignment, parseEscPos, PrinterState } from "./escpos.ts";
+import iconv from "https://esm.sh/iconv-lite@0.6.3";
 
 Deno.test("parseEscPos - Initialize Printer", () => {
   const command = new Uint8Array([0x1b, 0x40]);
@@ -40,7 +41,7 @@ Deno.test("parseEscPos - Set Alignment", () => {
 });
 
 Deno.test("parseEscPos - Print Text", () => {
-  const command = new TextEncoder().encode("Hello, World!");
+  const command = iconv.encode("Hello, World!", "CP852");
   const state: PrinterState = {
     alignment: Alignment.Left,
     charSize: 0,
@@ -49,6 +50,18 @@ Deno.test("parseEscPos - Print Text", () => {
   };
   const result = parseEscPos(command, state);
   assertEquals(result, "Hello, World!");
+});
+
+Deno.test("parseEscPos - CP852 Encoded Text", () => {
+  const command = iconv.encode("Dva obrázky", "CP852");
+  const state: PrinterState = {
+    alignment: Alignment.Left,
+    charSize: 0,
+    leftMargin: 0,
+    printAreaWidth: 0,
+  };
+  const result = parseEscPos(command, state);
+  assertEquals(result, "Dva obrázky");
 });
 
 Deno.test("parseEscPos - Set Char Size", () => {
@@ -92,15 +105,15 @@ Deno.test("parseEscPos - Set Print Area Width", () => {
 
 Deno.test("parseEscPos - Complex Command", () => {
   const command = new Uint8Array([
-    ...new TextEncoder().encode("Hello\n"),
+    ...iconv.encode("Hello\n", "CP852"),
     0x1b,
     0x61,
     1, // Center
-    ...new TextEncoder().encode("World\n"),
+    ...iconv.encode("World\n", "CP852"),
     0x1b,
     0x61,
     2, // Right
-    ...new TextEncoder().encode("!\n"),
+    ...iconv.encode("!\n", "CP852"),
     0x1d,
     0x56, // Cut
   ]);

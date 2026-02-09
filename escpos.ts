@@ -1,3 +1,5 @@
+import iconv from "https://esm.sh/iconv-lite@0.6.3";
+
 export enum Alignment {
   Left,
   Center,
@@ -14,19 +16,32 @@ export interface PrinterState {
 export function parseEscPos(command: Uint8Array, state: PrinterState): string | object {
   let result: string | object = "";
   let i = 0;
+  let textBuffer: number[] = [];
+
+  const appendText = () => {
+    if (textBuffer.length > 0) {
+      result = (typeof result === "string" ? result : "") +
+        iconv.decode(new Uint8Array(textBuffer), "CP852");
+      textBuffer = [];
+    }
+  };
+
   while (i < command.length) {
     const byte = command[i];
     switch (byte) {
       case 0x0a: // LF
-        result += "\n";
+        appendText();
+        result = (typeof result === "string" ? result : "") + "\n";
         i++;
         break;
       case 0x1b: // ESC
+        appendText();
         if (i + 1 < command.length) {
           const nextByte = command[i + 1];
           switch (nextByte) {
             case 0x40: // @
-              result += "[Initialize Printer]\n";
+              result = (typeof result === "string" ? result : "") +
+                "[Initialize Printer]\n";
               state.alignment = Alignment.Left;
               i += 2;
               break;
@@ -35,13 +50,16 @@ export function parseEscPos(command: Uint8Array, state: PrinterState): string | 
                 const alignment = command[i + 2];
                 if (alignment === 0 || alignment === 48) {
                   state.alignment = Alignment.Left;
-                  result += "[Set Alignment: Left]\n";
+                  result = (typeof result === "string" ? result : "") +
+                    "[Set Alignment: Left]\n";
                 } else if (alignment === 1 || alignment === 49) {
                   state.alignment = Alignment.Center;
-                  result += "[Set Alignment: Center]\n";
+                  result = (typeof result === "string" ? result : "") +
+                    "[Set Alignment: Center]\n";
                 } else if (alignment === 2 || alignment === 50) {
                   state.alignment = Alignment.Right;
-                  result += "[Set Alignment: Right]\n";
+                  result = (typeof result === "string" ? result : "") +
+                    "[Set Alignment: Right]\n";
                 }
                 i += 3;
               } else {
@@ -50,15 +68,16 @@ export function parseEscPos(command: Uint8Array, state: PrinterState): string | 
               break;
             case 0x21: // !
               if (i + 2 < command.length) {
-                // For now, just log the font setting
-                result += `[Set Font: 0x${command[i + 2].toString(16)}]\n`;
+                result = (typeof result === "string" ? result : "") +
+                  `[Set Font: 0x${command[i + 2].toString(16)}]\n`;
                 i += 3;
               } else {
                 i++;
               }
               break;
             default:
-              result += `[ESC 0x${nextByte.toString(16)}]`;
+              result = (typeof result === "string" ? result : "") +
+                `[ESC 0x${nextByte.toString(16)}]`;
               i += 2;
               break;
           }
@@ -67,13 +86,15 @@ export function parseEscPos(command: Uint8Array, state: PrinterState): string | 
         }
         break;
       case 0x1d: // GS
+        appendText();
         if (i + 1 < command.length) {
           const nextByte = command[i + 1];
           switch (nextByte) {
             case 0x21: // !
               if (i + 2 < command.length) {
                 state.charSize = command[i + 2];
-                result += `[Set Char Size: ${state.charSize}]\n`;
+                result = (typeof result === "string" ? result : "") +
+                  `[Set Char Size: ${state.charSize}]\n`;
                 i += 3;
               } else {
                 i++;
@@ -82,14 +103,16 @@ export function parseEscPos(command: Uint8Array, state: PrinterState): string | 
             case 0x4c: // L
               if (i + 3 < command.length) {
                 state.leftMargin = command[i + 2] + command[i + 3] * 256;
-                result += `[Set Left Margin: ${state.leftMargin}]\n`;
+                result = (typeof result === "string" ? result : "") +
+                  `[Set Left Margin: ${state.leftMargin}]\n`;
                 i += 4;
               } else {
                 i++;
               }
               break;
             case 0x56: // V
-              result += "[Cut Paper]\n";
+              result = (typeof result === "string" ? result : "") +
+                "[Cut Paper]\n";
               i += 2;
               break;
             case 0x76: // v
@@ -118,14 +141,16 @@ export function parseEscPos(command: Uint8Array, state: PrinterState): string | 
             case 0x57: // W
               if (i + 3 < command.length) {
                 state.printAreaWidth = command[i + 2] + command[i + 3] * 256;
-                result += `[Set Print Area Width: ${state.printAreaWidth}]\n`;
+                result = (typeof result === "string" ? result : "") +
+                  `[Set Print Area Width: ${state.printAreaWidth}]\n`;
                 i += 4;
               } else {
                 i++;
               }
               break;
             default:
-              result += `[GS 0x${nextByte.toString(16)}]`;
+              result = (typeof result === "string" ? result : "") +
+                `[GS 0x${nextByte.toString(16)}]`;
               i += 2;
               break;
           }
@@ -134,15 +159,12 @@ export function parseEscPos(command: Uint8Array, state: PrinterState): string | 
         }
         break;
       default:
-        // Check for printable ASCII characters
-        if (byte >= 32 && byte <= 126) {
-          result += String.fromCharCode(byte);
-        } else {
-          result += `[0x${byte.toString(16)}]`;
-        }
+        textBuffer.push(byte);
         i++;
+        break;
     }
   }
+  appendText(); // Append any remaining text
   return result;
 }
 
