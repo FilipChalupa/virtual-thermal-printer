@@ -1,13 +1,5 @@
 {
 	"version": "0.0.0",
-	"tasks": {
-		"start": "deno run --allow-read --allow-sys --allow-ffi --allow-env --allow-net --unstable-broadcast-channel main.ts --epos-port 8000",
-		"dev": "denon run --allow-read --allow-sys --allow-ffi --allow-env --allow-net --unstable-broadcast-channel main.ts --epos-port 8000 --recall",
-		"compile": "deno compile --allow-read --allow-sys --allow-ffi --allow-env --allow-net --unstable-broadcast-channel main.ts"
-	},
-	"imports": {
-		"hono": "jsr:@hono/hono@^4.6.5"
-	},
 	"fmt": {
 		"useTabs": true,
 		"semiColons": false,

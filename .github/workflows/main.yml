@@ -17,8 +17,10 @@ jobs:
     permissions:
       id-token: write # Needed for auth with Deno Deploy
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
       - name: Check formatting
         if: matrix.os == 'ubuntu-latest'
         run: deno fmt --check
@@ -33,7 +35,7 @@ jobs:
       # - name: Compile
       #   run: deno task compile
       - name: Cache Deno dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ env.DENO_DIR }}
           key: ${{ matrix.os }}-${{ hashFiles('deno.lock') }}

@@ -7,20 +7,6 @@ Work in progress
 - Support Epson EPOS
 - Support ESC/POS over socket
 
-## Run
-
-### Production
-
-```sh
-deno task start
-```
-
-### Development
-
-```sh
-deno task dev
-```
-
 ### Production
 
 https://virtual-thermal-printer.deno.dev/
