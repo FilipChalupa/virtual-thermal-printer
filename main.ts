@@ -6,7 +6,7 @@ import { parseArgs } from 'jsr:@std/cli/parse-args'
 const flags = parseArgs(Deno.args, {
 	string: ['epos-port', 'escpos-port'],
 	boolean: ['recall'],
-	default: { 'epos-port': '80', 'escpos-port': '9100', recall: false },
+	default: { 'epos-port': '8000', 'escpos-port': '9100', recall: false },
 })
 
 const eposPort = parseInt(flags['epos-port'])
@@ -25,18 +25,36 @@ app.use(eposEndpoint, cors())
 app.post(eposEndpoint, async (context) => {
 	// @TODO
 })
+const connectedClients = new Set<WebSocket>();
+
 app.get(
 	'/stream',
-	upgradeWebSocket(() => {
-		//
+	upgradeWebSocket((c) => {
+		return {
+			onOpen: (_evt, ws) => {
+				console.log("WebSocket opened.");
+				connectedClients.add(ws);
+			},
+			onMessage: (_evt, ws) => {
+				// Do nothing for now
+			},
+			onClose: (_evt, ws) => {
+				console.log("WebSocket closed.");
+				connectedClients.delete(ws);
+			},
+			onError: (evt, ws) => {
+				console.log("WebSocket error:", evt.message);
+				connectedClients.delete(ws);
+			},
+		};
 	}),
-)
+);
 app.use(
 	'/*',
 	serveStatic({
 		root: './public',
 	}),
-)
+);
 
 Deno.serve(
 	{
@@ -44,15 +62,19 @@ Deno.serve(
 		onListen(localAddress) {
 			console.log(
 				`Listening on http://${localAddress.hostname}:${localAddress.port}.`,
-			)
+			);
 		},
 	},
 	app.fetch,
-)
+);
+
+import { handleConnection } from './escpos.ts';
 
 const listener = Deno.listen({
 	port: escposPort,
-})
-console.log(`Listening to ESCPOS on 0.0.0.0:${escposPort}.`)
+});
+console.log(`Listening to ESCPOS on 0.0.0.0:${escposPort}.`);
 
-listener // @TODO: handle escpos connections
+for await (const conn of listener) {
+	handleConnection(conn, connectedClients);
+}
