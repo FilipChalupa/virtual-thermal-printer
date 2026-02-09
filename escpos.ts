@@ -11,8 +11,8 @@ export interface PrinterState {
   printAreaWidth: number;
 }
 
-export function parseEscPos(command: Uint8Array, state: PrinterState): string {
-  let result = "";
+export function parseEscPos(command: Uint8Array, state: PrinterState): string | object {
+  let result: string | object = "";
   let i = 0;
   while (i < command.length) {
     const byte = command[i];
@@ -92,6 +92,29 @@ export function parseEscPos(command: Uint8Array, state: PrinterState): string {
               result += "[Cut Paper]\n";
               i += 2;
               break;
+            case 0x76: // v
+              if (i + 1 < command.length) {
+                const nextByte = command[i + 1];
+                if (nextByte === 0x30) { // 0
+                  const m = command[i + 2];
+                  const fn = command[i + 3];
+                  const xL = command[i + 4];
+                  const xH = command[i + 5];
+                  const yL = command[i + 6];
+                  const yH = command[i + 7];
+                  const width = xL + xH * 256;
+                  const height = yL + yH * 256;
+                  const data = command.subarray(i + 8, i + 8 + width * height);
+                  result = {
+                    type: "image",
+                    width,
+                    height,
+                    data: Array.from(data),
+                  };
+                  i += 8 + width * height;
+                }
+              }
+              break;
             case 0x57: // W
               if (i + 3 < command.length) {
                 state.printAreaWidth = command[i + 2] + command[i + 3] * 256;
@@ -141,11 +164,11 @@ export async function handleConnection(conn: Deno.Conn, connectedClients: Set<We
         break;
       }
       const command = buffer.subarray(0, n);
-      const parsedCommand = parseEscPos(command, state);
-      if (parsedCommand) {
-
+      const parsedData = parseEscPos(command, state);
+      if (parsedData) {
+        const dataToSend = typeof parsedData === "string" ? parsedData : JSON.stringify(parsedData);
         for (const client of connectedClients) {
-          client.send(parsedCommand);
+          client.send(dataToSend);
         }
       }
     } catch (error) {
