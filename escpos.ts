@@ -143,7 +143,7 @@ export async function handleConnection(conn: Deno.Conn, connectedClients: Set<We
       const command = buffer.subarray(0, n);
       const parsedCommand = parseEscPos(command, state);
       if (parsedCommand) {
-        console.log(parsedCommand);
+
         for (const client of connectedClients) {
           client.send(parsedCommand);
         }
