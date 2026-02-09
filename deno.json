@@ -6,6 +6,9 @@
 		"singleQuote": true
 	},
 	"imports": {
-		"hono": "jsr:@hono/hono@^4.6.5"
+		"hono": "jsr:@hono/hono@^4.6.5",
+		"hono/cors": "jsr:@hono/hono@^4.6.5/cors",
+		"hono/deno": "jsr:@hono/hono@^4.6.5/deno",
+		"@std/cli/parse-args": "jsr:@std/cli@^1.0.0/parse-args"
 	}
 }

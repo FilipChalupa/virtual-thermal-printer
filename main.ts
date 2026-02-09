@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { serveStatic, upgradeWebSocket } from 'hono/deno'
-import { parseArgs } from 'jsr:@std/cli/parse-args'
+import { parseArgs } from '@std/cli/parse-args'
 
 const flags = parseArgs(Deno.args, {
 	string: ['epos-port', 'escpos-port'],

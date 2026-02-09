@@ -2,7 +2,8 @@
   "version": "5",
   "specifiers": {
     "jsr:@hono/hono@^4.6.5": "4.6.5",
-    "jsr:@std/cli@*": "1.0.15"
+    "jsr:@std/cli@*": "1.0.15",
+    "jsr:@std/cli@1": "1.0.15"
   },
   "jsr": {
     "@hono/hono@4.6.5": {
@@ -48,7 +49,8 @@
   },
   "workspace": {
     "dependencies": [
-      "jsr:@hono/hono@^4.6.5"
+      "jsr:@hono/hono@^4.6.5",
+      "jsr:@std/cli@1"
     ]
   }
 }
