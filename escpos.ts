@@ -1,5 +1,5 @@
 import iconv from 'iconv-lite'
-import { Buffer } from 'https://deno.land/std@0.224.0/io/buffer.ts'
+import { Buffer } from '@std/io/buffer'
 
 export enum Alignment {
 	Left,
