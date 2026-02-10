@@ -17,6 +17,11 @@ function connectWebSocket() {
 	socket.onmessage = (event) => {
 		const data = JSON.parse(event.data)
 		if (data.type === 'image') {
+			console.log('Received image data:', data)
+			console.log('Image dimensions:', data.width, 'x', data.height)
+			console.log('Image data length:', data.data.length)
+			console.log('First 10 pixels of image data:', data.data.slice(0, 10))
+
 			const canvas = document.createElement('canvas')
 			canvas.width = data.width
 			canvas.height = data.height
