@@ -189,7 +189,9 @@ connectedClients: Set<any>) {
       const command = buffer.subarray(0, n);
       const parsedData = parseEscPos(command, state);
       if (parsedData) {
-        const dataToSend = typeof parsedData === "string" ? parsedData : JSON.stringify(parsedData);
+        const dataToSend = typeof parsedData === "string"
+          ? JSON.stringify({ type: "text", content: parsedData })
+          : JSON.stringify(parsedData);
         for (const client of connectedClients) {
           client.send(dataToSend);
         }
