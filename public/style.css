@@ -7,3 +7,10 @@
 :root {
 	font-family: sans-serif;
 }
+
+#printer-output canvas {
+	max-width: 100%;
+	height: auto;
+	display: block;
+}
+
