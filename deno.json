@@ -12,5 +12,14 @@
 		"@std/cli/parse-args": "jsr:@std/cli@^1.0.0/parse-args",
 		"@std/assert/mod.ts": "https://deno.land/std@0.218.2/assert/mod.ts",
 		"iconv-lite": "https://esm.sh/iconv-lite@0.6.3"
+	},
+	"tasks": {
+		"start": "deno run --allow-net --allow-read main.ts",
+		"dev": "deno run --allow-net --allow-read --watch main.ts",
+		"escpos_test": "deno test escpos.test.ts",
+		"test": "deno test",
+		"check": "deno check main.ts escpos.ts escpos.test.ts",
+		"fmt": "deno fmt",
+		"lint": "deno lint"
 	}
 }
