@@ -137,19 +137,24 @@ export function parseEscPos(
 								const xH = command[5]
 								const yL = command[6]
 								const yH = command[7]
-								const width = xL + xH * 256
+								const rawWidth = xL + xH * 256
 								const height = yL + yH * 256
+
+								console.log(`Image parsing: xL=0x${xL.toString(16)}, xH=0x${xH.toString(16)}`);
+								console.log(`Image parsing: rawWidth=${rawWidth}, height=${height}`);
+								const expectedImageDataSize = rawWidth * height;
+								console.log(`Image parsing: Expected image data size = ${expectedImageDataSize} bytes`);
 								
 								// Check if the full image data is present
-								if (8 + (width * height) <= command.length) {
-									const imageData = command.subarray(8, 8 + width * height)
+								if (8 + expectedImageDataSize <= command.length) {
+									const imageData = command.subarray(8, 8 + rawWidth * height)
 									result = {
 										type: 'image',
-										width,
-										height,
+										width: rawWidth * 8, // Corrected pixel width for frontend
+										height: height,
 										data: Array.from(imageData),
 									}
-									consumedBytes = 8 + (width * height)
+									consumedBytes = 8 + (rawWidth * height)
 								} else {
 									return { data: null, consumedBytes: 0 } // Incomplete image data
 								}

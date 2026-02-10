@@ -28,12 +28,24 @@ function connectWebSocket() {
 			const ctx = canvas.getContext('2d')
 			if (ctx) {
 				const imageData = ctx.createImageData(data.width, data.height)
-				for (let i = 0; i < data.data.length; i++) {
-					const pixel = data.data[i]
-					imageData.data[i * 4] = pixel
-					imageData.data[i * 4 + 1] = pixel
-					imageData.data[i * 4 + 2] = pixel
-					imageData.data[i * 4 + 3] = 255
+				let byteIndex = 0
+				for (let y = 0; y < data.height; y++) {
+					for (let x = 0; x < data.width; x += 8) { // Process 8 pixels at a time
+						const byte = data.data[byteIndex]
+						for (let bit = 0; bit < 8; bit++) {
+							if (x + bit < data.width) { // Ensure we don't go past image width
+								const pixelIndex = ((y * data.width) + (x + bit)) * 4
+								const isBlack = (byte >> (7 - bit)) & 0x01
+								const color = isBlack ? 0 : 255 // 0 for black, 255 for white
+
+								imageData.data[pixelIndex] = color // R
+								imageData.data[pixelIndex + 1] = color // G
+								imageData.data[pixelIndex + 2] = color // B
+								imageData.data[pixelIndex + 3] = 255 // A
+							}
+						}
+						byteIndex++
+					}
 				}
 				ctx.putImageData(imageData, 0, 0)
 			}
