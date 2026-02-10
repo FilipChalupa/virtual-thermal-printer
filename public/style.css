@@ -8,6 +8,13 @@
 	font-family: sans-serif;
 }
 
+#printer-output {
+	height: 80vh; /* Example height, adjust as needed */
+	overflow-y: auto;
+	border: 1px solid #ccc; /* Just for visualization */
+	padding: 10px;
+}
+
 #printer-output canvas {
 	max-width: 100%;
 	height: auto;

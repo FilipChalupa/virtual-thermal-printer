@@ -49,16 +49,23 @@ function connectWebSocket() {
 				}
 				ctx.putImageData(imageData, 0, 0)
 			}
-			printerOutput.appendChild(canvas)
-		        } else if (data.type === 'text') {
-		          data.content.split('\n').forEach((line) => {
-		            const div = document.createElement('div')
-		            div.textContent = line
-		            printerOutput.appendChild(div)
-		          })
-		        }		printerOutput.scrollTop = printerOutput.scrollHeight
-	}
-
+						printerOutput.appendChild(canvas)
+						scrollToBottom()
+					} else if (data.type === 'text') {
+						data.content.split('\n').forEach((line) => {
+							const div = document.createElement('div')
+							div.textContent = line
+							printerOutput.appendChild(div)
+						})
+						scrollToBottom()
+					}
+				}
+			
+				function scrollToBottom() {
+					requestAnimationFrame(() => {
+						printerOutput.scrollTop = printerOutput.scrollHeight
+					})
+				}
 	socket.onclose = () => {
 		console.log(
 			`WebSocket disconnected. Attempting to reconnect in ${
