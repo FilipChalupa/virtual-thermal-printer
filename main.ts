@@ -26,40 +26,48 @@ app.post(eposEndpoint, async (_context) => {
 	// @TODO
 })
 // deno-lint-ignore no-explicit-any
-const connectedClients = new Set<any>();
+const connectedClients = new Set<any>()
 
 app.get(
 	'/stream',
 	upgradeWebSocket((_c) => {
 		return {
-			onOpen: (_evt, // deno-lint-ignore no-explicit-any
-				ws: any) => {
-				console.log("WebSocket opened.");
-				connectedClients.add(ws);
+			onOpen: (
+				_evt, // deno-lint-ignore no-explicit-any
+				ws: any,
+			) => {
+				console.log('WebSocket opened.')
+				connectedClients.add(ws)
 			},
-			onMessage: (_evt, // deno-lint-ignore no-explicit-any
-				_ws: any) => {
+			onMessage: (
+				_evt, // deno-lint-ignore no-explicit-any
+				_ws: any,
+			) => {
 				// Do nothing for now
 			},
-			onClose: (_evt, // deno-lint-ignore no-explicit-any
-				ws: any) => {
-				console.log("WebSocket closed.");
-				connectedClients.delete(ws);
+			onClose: (
+				_evt, // deno-lint-ignore no-explicit-any
+				ws: any,
+			) => {
+				console.log('WebSocket closed.')
+				connectedClients.delete(ws)
 			},
-			onError: (evt, // deno-lint-ignore no-explicit-any
-				ws: any) => {
-				console.log("WebSocket error:", (evt as ErrorEvent).message);
-				connectedClients.delete(ws);
+			onError: (
+				evt, // deno-lint-ignore no-explicit-any
+				ws: any,
+			) => {
+				console.log('WebSocket error:', (evt as ErrorEvent).message)
+				connectedClients.delete(ws)
 			},
-		};
+		}
 	}),
-);
+)
 app.use(
 	'/*',
 	serveStatic({
 		root: './public',
 	}),
-);
+)
 
 Deno.serve(
 	{
@@ -67,21 +75,21 @@ Deno.serve(
 		onListen(localAddress) {
 			console.log(
 				`Listening to EPOS on http://${localAddress.hostname}:${localAddress.port}.`,
-			);
+			)
 		},
 	},
 	app.fetch,
-);
+)
 
 const escposListener = Deno.listen({
 	port: escposPort,
-});
-console.log(`Listening to ESCPOS on 0.0.0.0:${escposPort}.`);
+})
+console.log(`Listening to ESCPOS on 0.0.0.0:${escposPort}.`)
 
-import { handleConnection } from './escpos.ts';
+import { handleConnection } from './escpos.ts'
 
 for await (const conn of escposListener) {
-	(async () => {
-		await handleConnection(conn, connectedClients);
-	})();
+	;(async () => {
+		await handleConnection(conn, connectedClients)
+	})()
 }
