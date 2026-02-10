@@ -38,9 +38,11 @@ function connectWebSocket() {
         printerOutput.scrollTop = printerOutput.scrollHeight;
       }
     } catch (_error) {
-      const p = document.createElement("p");
-      p.textContent = message;
-      printerOutput.appendChild(p);
+      message.split('\n').forEach(line => {
+        const div = document.createElement("div");
+        div.textContent = line;
+        printerOutput.appendChild(div);
+      });
       printerOutput.scrollTop = printerOutput.scrollHeight;
     }
   };
