@@ -36,7 +36,11 @@ Deno.test('parseEscPos - Set Alignment', () => {
 		printAreaWidth: 0,
 	}
 	const result = parseEscPos(command, state)
-	assertEquals(result.data, { type: 'command', name: 'Set Alignment', details: { alignment: 'Center' } })
+	assertEquals(result.data, {
+		type: 'command',
+		name: 'Set Alignment',
+		details: { alignment: 'Center' },
+	})
 	assertEquals(state.alignment, Alignment.Center)
 })
 
@@ -73,7 +77,11 @@ Deno.test('parseEscPos - Set Char Size', () => {
 		printAreaWidth: 0,
 	}
 	const result = parseEscPos(command, state)
-	assertEquals(result.data, { type: 'command', name: 'Set Char Size', details: { size: 17 } })
+	assertEquals(result.data, {
+		type: 'command',
+		name: 'Set Char Size',
+		details: { size: 17 },
+	})
 	assertEquals(state.charSize, 17)
 })
 
@@ -86,7 +94,11 @@ Deno.test('parseEscPos - Set Left Margin', () => {
 		printAreaWidth: 0,
 	}
 	const result = parseEscPos(command, state)
-	assertEquals(result.data, { type: 'command', name: 'Set Left Margin', details: { margin: 10 } })
+	assertEquals(result.data, {
+		type: 'command',
+		name: 'Set Left Margin',
+		details: { margin: 10 },
+	})
 	assertEquals(state.leftMargin, 10)
 })
 
@@ -99,6 +111,10 @@ Deno.test('parseEscPos - Set Print Area Width', () => {
 		printAreaWidth: 0,
 	}
 	const result = parseEscPos(command, state)
-	assertEquals(result.data, { type: 'command', name: 'Set Print Area Width', details: { width: 384 } })
+	assertEquals(result.data, {
+		type: 'command',
+		name: 'Set Print Area Width',
+		details: { width: 384 },
+	})
 	assertEquals(state.printAreaWidth, 384)
 })
