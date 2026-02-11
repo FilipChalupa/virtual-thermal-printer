@@ -62,12 +62,12 @@ export function parseEscPos(
 
 	const firstByte = command[0]
 
-	if (firstByte !== 0x0a && firstByte !== 0x1b && firstByte !== 0x1d) {
+	if (firstByte !== 0x0a && firstByte !== 0x1b && firstByte !== 0x1d && firstByte !== 0x10 && firstByte !== 0x12) {
 		let currentTextIndex = 0
 		while (currentTextIndex < command.length) {
 			const currentByte = command[currentTextIndex]
 			if (
-				currentByte === 0x0a || currentByte === 0x1b || currentByte === 0x1d
+				currentByte === 0x0a || currentByte === 0x1b || currentByte === 0x1d || currentByte === 0x10 || currentByte === 0x12
 			) {
 				break
 			}
@@ -88,6 +88,16 @@ export function parseEscPos(
 			parsedBlock = { type: 'text', content: '\n' }
 			consumedBytes = 1
 			break
+		case 0x10: // DLE (Data Link Escape) - often used for printer commands
+			// For now, treat as a generic command to consume it and prevent it from appearing as text
+			parsedBlock = { type: 'command', name: 'Unknown DLE Command' };
+			consumedBytes = 1;
+			break;
+		case 0x12: // DC2 (Device Control 2) - often used for printer commands (e.g., set character size)
+			// For now, treat as a generic command to consume it and prevent it from appearing as text
+			parsedBlock = { type: 'command', name: 'Unknown DC2 Command' };
+			consumedBytes = 1;
+			break;
 		case 0x1b: // ESC
 			if (command.length >= 2) {
 				const nextByte = command[1]
