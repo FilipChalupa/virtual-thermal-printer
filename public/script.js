@@ -2,17 +2,38 @@ const printerOutput = document.getElementById('printer-output')
 let socket
 let reconnectInterval = 1000 // Initial reconnect attempt after 1 second
 
-// Throttling utility function
-function throttle(func, delay) {
-	let timeoutId = null
-	return function(...args) {
-		if (!timeoutId) {
-			timeoutId = setTimeout(() => {
-				func.apply(this, args)
-				timeoutId = null
-			}, delay)
-		}
-	}
+let scrollTarget = 0; // Desired scroll position
+let scrollAnimationId = null; // To store requestAnimationFrame ID
+
+// Function to update the scroll target and ensure animation is running
+function updateScrollTargetAndAnimate() {
+    scrollTarget = printerOutput.scrollHeight; // Always scroll to the very bottom
+    if (scrollAnimationId === null) {
+        animateScroll();
+    }
+}
+
+// Custom continuous scroll animation logic
+function animateScroll() {
+    const currentScrollTop = printerOutput.scrollTop;
+    const scrollDelta = scrollTarget - currentScrollTop;
+    const scrollStep = 8; // Pixels to scroll per frame
+
+    if (scrollDelta > 0) { // Only scroll down if not at target
+        let newScrollTop = currentScrollTop + scrollStep;
+        // Ensure we don't overshoot the target (or the actual scrollHeight)
+        newScrollTop = Math.min(newScrollTop, scrollTarget);
+        printerOutput.scrollTop = newScrollTop;
+
+        // Continue animation if still not at target
+        if (printerOutput.scrollTop < scrollTarget) {
+            scrollAnimationId = requestAnimationFrame(animateScroll);
+        } else {
+            scrollAnimationId = null; // Reached target
+        }
+    } else {
+        scrollAnimationId = null; // Already at or past target
+    }
 }
 
 function connectWebSocket() {
@@ -63,27 +84,22 @@ function connectWebSocket() {
 				ctx.putImageData(imageData, 0, 0)
 			}
 			printerOutput.appendChild(canvas)
-			throttledScrollToBottom()
+			updateScrollTargetAndAnimate()
 		} else if (data.type === 'text') {
 			data.content.split('\n').forEach((line) => {
 				const div = document.createElement('div')
 				div.textContent = line
 				printerOutput.appendChild(div)
 			})
-			throttledScrollToBottom()
+			updateScrollTargetAndAnimate()
 		} else if (data.type === 'command' && data.name === 'Cut Paper') {
 			const cutLine = document.createElement('div')
 			cutLine.className = 'cut-line'
 			cutLine.textContent = '--- CUT ---'
 			printerOutput.appendChild(cutLine)
-			throttledScrollToBottom()
+			updateScrollTargetAndAnimate()
 		}
 	} // Closing brace for socket.onmessage, added for clarity.
-
-	function _scrollToBottom() { // Renamed original function
-		printerOutput.scrollTo({ top: printerOutput.scrollHeight, behavior: 'smooth' })
-	}
-    const throttledScrollToBottom = throttle(_scrollToBottom, 500);
 
 	socket.onclose = () => {
 		console.log(
