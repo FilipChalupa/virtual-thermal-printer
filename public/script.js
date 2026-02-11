@@ -2,46 +2,46 @@ const printerOutput = document.getElementById('printer-output')
 let socket
 let reconnectInterval = 1000 // Initial reconnect attempt after 1 second
 
-let scrollTarget = 0; // Desired scroll position
-let scrollAnimationId = null; // To store requestAnimationFrame ID
+let scrollTarget = 0 // Desired scroll position
+let scrollAnimationId = null // To store requestAnimationFrame ID
 
 // Function to update the scroll target and ensure animation is running
 function updateScrollTargetAndAnimate() {
-    scrollTarget = printerOutput.scrollHeight; // Always scroll to the very bottom
-    if (scrollAnimationId === null) {
-        animateScroll();
-    }
+	scrollTarget = printerOutput.scrollHeight // Always scroll to the very bottom
+	if (scrollAnimationId === null) {
+		animateScroll()
+	}
 }
 
 // Custom continuous scroll animation logic
 function animateScroll() {
-    const currentScrollTop = printerOutput.scrollTop;
-    const scrollDelta = scrollTarget - currentScrollTop;
-    const scrollStep = 8; // Pixels to scroll per frame
+	const currentScrollTop = printerOutput.scrollTop
+	const scrollDelta = scrollTarget - currentScrollTop
+	const scrollStep = 8 // Pixels to scroll per frame
 
-    if (scrollDelta > 0) { // Only scroll down if not at target
-        let newScrollTop = currentScrollTop + scrollStep;
-        // Ensure we don't overshoot the target (or the actual scrollHeight)
-        newScrollTop = Math.min(newScrollTop, scrollTarget);
-        printerOutput.scrollTop = newScrollTop;
+	if (scrollDelta > 0) { // Only scroll down if not at target
+		let newScrollTop = currentScrollTop + scrollStep
+		// Ensure we don't overshoot the target (or the actual scrollHeight)
+		newScrollTop = Math.min(newScrollTop, scrollTarget)
+		printerOutput.scrollTop = newScrollTop
 
-        // Continue animation if still not at target
-        if (printerOutput.scrollTop < scrollTarget) {
-            scrollAnimationId = requestAnimationFrame(animateScroll);
-        } else {
-            scrollAnimationId = null; // Reached target
-        }
-    } else {
-        scrollAnimationId = null; // Already at or past target
-    }
+		// Continue animation if still not at target
+		if (printerOutput.scrollTop < scrollTarget) {
+			scrollAnimationId = requestAnimationFrame(animateScroll)
+		} else {
+			scrollAnimationId = null // Reached target
+		}
+	} else {
+		scrollAnimationId = null // Already at or past target
+	}
 }
 
 function limitContentHeight() {
-    const threshold = 2 * printerOutput.clientHeight;
-    // Loop while scrollHeight exceeds the threshold and there's content to remove
-    while (printerOutput.scrollHeight > threshold && printerOutput.firstChild) {
-        printerOutput.removeChild(printerOutput.firstChild);
-    }
+	const threshold = 2 * printerOutput.clientHeight
+	// Loop while scrollHeight exceeds the threshold and there's content to remove
+	while (printerOutput.scrollHeight > threshold && printerOutput.firstChild) {
+		printerOutput.removeChild(printerOutput.firstChild)
+	}
 }
 
 function connectWebSocket() {

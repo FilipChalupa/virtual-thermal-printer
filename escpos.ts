@@ -1,4 +1,9 @@
-import { EscPosTransformer, Alignment as _Alignment, PrinterState as _PrinterState, ParsedEscPosBlock as _ParsedEscPosBlock } from './escpos-transform.ts'
+import {
+	Alignment as _Alignment,
+	EscPosTransformer,
+	ParsedEscPosBlock as _ParsedEscPosBlock,
+	PrinterState as _PrinterState,
+} from './escpos-transform.ts'
 
 export async function handleConnection(
 	conn: Deno.Conn, // deno-lint-ignore no-explicit-any

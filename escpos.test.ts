@@ -24,7 +24,11 @@ Deno.test('parseEscPos - Cut Paper', async () => {
 		printAreaWidth: 0,
 	}
 	const result = await parseEscPos(command, state)
-	assertEquals(result.data, { type: 'command', name: 'Cut Paper', details: { command: 'GS V', cutType: 'Full' } })
+	assertEquals(result.data, {
+		type: 'command',
+		name: 'Cut Paper',
+		details: { command: 'GS V', cutType: 'Full' },
+	})
 })
 
 Deno.test('parseEscPos - Set Alignment', async () => {
@@ -128,7 +132,11 @@ Deno.test('parseEscPos - Cut Paper (ESC i)', async () => {
 		printAreaWidth: 0,
 	}
 	const result = await parseEscPos(command, state)
-	assertEquals(result.data, { type: 'command', name: 'Cut Paper', details: { command: 'ESC i', cutType: 'Full' } })
+	assertEquals(result.data, {
+		type: 'command',
+		name: 'Cut Paper',
+		details: { command: 'ESC i', cutType: 'Full' },
+	})
 })
 
 Deno.test('parseEscPos - Cut Paper (GS V without argument)', async () => {
@@ -140,7 +148,11 @@ Deno.test('parseEscPos - Cut Paper (GS V without argument)', async () => {
 		printAreaWidth: 0,
 	}
 	const result = await parseEscPos(command, state)
-	assertEquals(result.data, { type: 'command', name: 'Cut Paper', details: { command: 'GS V', cutType: 'Full' } })
+	assertEquals(result.data, {
+		type: 'command',
+		name: 'Cut Paper',
+		details: { command: 'GS V', cutType: 'Full' },
+	})
 })
 
 Deno.test('parseEscPos - Cut Paper (GS V 0x00)', async () => {
@@ -152,7 +164,11 @@ Deno.test('parseEscPos - Cut Paper (GS V 0x00)', async () => {
 		printAreaWidth: 0,
 	}
 	const result = await parseEscPos(command, state)
-	assertEquals(result.data, { type: 'command', name: 'Cut Paper', details: { command: 'GS V n', cutType: 'Full' } })
+	assertEquals(result.data, {
+		type: 'command',
+		name: 'Cut Paper',
+		details: { command: 'GS V n', cutType: 'Full' },
+	})
 })
 
 Deno.test('parseEscPos - Cut Paper (GS V 0x01)', async () => {
@@ -164,5 +180,9 @@ Deno.test('parseEscPos - Cut Paper (GS V 0x01)', async () => {
 		printAreaWidth: 0,
 	}
 	const result = await parseEscPos(command, state)
-	assertEquals(result.data, { type: 'command', name: 'Cut Paper', details: { command: 'GS V n', cutType: 'Partial' } })
+	assertEquals(result.data, {
+		type: 'command',
+		name: 'Cut Paper',
+		details: { command: 'GS V n', cutType: 'Partial' },
+	})
 })
