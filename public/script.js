@@ -45,7 +45,8 @@ function limitContentHeight() {
 }
 
 function connectWebSocket() {
-	socket = new WebSocket(`ws://${location.host}/stream`)
+	const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
+	socket = new WebSocket(`${protocol}//${location.host}/stream`)
 
 	socket.onopen = () => {
 		console.log('WebSocket connected.')
