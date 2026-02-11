@@ -1,5 +1,7 @@
 import iconv from 'iconv-lite'
 import { Buffer } from '@std/io/buffer'
+import { Image } from 'https://deno.land/x/imagescript@v1.2.14/mod.ts'
+import { encodeBase64 } from 'jsr:@std/encoding/base64'
 
 export enum Alignment {
 	Left,
@@ -29,7 +31,7 @@ export interface EscPosImage {
 	type: 'image'
 	width: number
 	height: number
-	data: number[]
+	base64: string // Changed from data: number[]
 }
 
 export type ParsedEscPosBlock = EscPosText | EscPosCommand | EscPosImage
@@ -39,10 +41,45 @@ export interface ParsedCommandResult {
 	consumedBytes: number
 }
 
-export function parseEscPos(
+// Helper function to convert 1-bit per pixel image data to RGBA
+function convert1BitToRgba(
+    oneBitData: Uint8Array,
+    rawWidth: number, // width in bytes
+    height: number,
+): Uint8ClampedArray {
+    const width = rawWidth * 8; // actual pixel width
+    const rgbaData = new Uint8ClampedArray(width * height * 4); // 4 bytes per pixel (RGBA)
+
+    let oneBitDataIndex = 0;
+    for (let y = 0; y < height; y++) {
+        for (let xByte = 0; xByte < rawWidth; xByte++) {
+            const byte = oneBitData[oneBitDataIndex++];
+            for (let bit = 0; bit < 8; bit++) {
+                const x = xByte * 8 + bit;
+                if (x >= width) {
+                    continue;
+                }
+
+                const rgbaIndex = (y * width + x) * 4;
+                const isBlack = (byte >> (7 - bit)) & 0x01; // Read bit from MSB to LSB
+
+                // Monochrome: Black for 1, White for 0 (inverted for typical display)
+                const color = isBlack ? 0 : 255;
+
+                rgbaData[rgbaIndex] = color;     // R
+                rgbaData[rgbaIndex + 1] = color; // G
+                rgbaData[rgbaIndex + 2] = color; // B
+                rgbaData[rgbaIndex + 3] = 255;   // A (fully opaque)
+            }
+        }
+    }
+    return rgbaData;
+}
+
+export async function parseEscPos(
 	command: Uint8Array,
 	state: PrinterState,
-): ParsedCommandResult {
+): Promise<ParsedCommandResult> {
 	let parsedBlock: ParsedEscPosBlock | null = null
 	let consumedBytes = 0
 	let textBuffer: number[] = []
@@ -237,15 +274,22 @@ export function parseEscPos(
 								const expectedImageDataSize = rawWidth * height
 
 								if (8 + expectedImageDataSize <= command.length) {
-									const imageData = command.subarray(
+									const oneBitImageData = command.subarray(
 										8,
 										8 + expectedImageDataSize,
 									)
+                                    const rgbaData = convert1BitToRgba(oneBitImageData, rawWidth, height);
+                                    const pixelWidth = rawWidth * 8;
+                                    const image = new Image(pixelWidth, height);
+                                    image.bitmap = rgbaData;
+                                    const pngBuffer = await image.encode();
+                                    const base64 = encodeBase64(pngBuffer);
+
 									parsedBlock = {
 										type: 'image',
-										width: rawWidth * 8,
+										width: pixelWidth,
 										height: height,
-										data: Array.from(imageData),
+										base64: `data:image/png;base64,${base64}`,
 									}
 									consumedBytes = 8 + expectedImageDataSize
 								} else {
@@ -312,7 +356,7 @@ export class EscPosTransformer implements Transformer<Uint8Array, ParsedEscPosBl
     };
   }
 
-  transform(
+  async transform(
     chunk: Uint8Array,
     controller: TransformStreamDefaultController<ParsedEscPosBlock>,
   ) {
@@ -320,7 +364,7 @@ export class EscPosTransformer implements Transformer<Uint8Array, ParsedEscPosBl
     this.#accumulatedBuffer.writeSync(chunk);
 
     while (true) {
-      const parsedResult = parseEscPos(
+      const parsedResult = await parseEscPos(
         this.#accumulatedBuffer.bytes(),
         this.#printerState,
       );
@@ -343,10 +387,10 @@ export class EscPosTransformer implements Transformer<Uint8Array, ParsedEscPosBl
 
   // The flush method is called when the input stream is closed.
   // It allows processing any remaining buffered data.
-  flush(controller: TransformStreamDefaultController<ParsedEscPosBlock>) {
+  async flush(controller: TransformStreamDefaultController<ParsedEscPosBlock>) {
     // Attempt to parse any remaining data in the buffer
     while (this.#accumulatedBuffer.length > 0) {
-      const parsedResult = parseEscPos(
+      const parsedResult = await parseEscPos(
         this.#accumulatedBuffer.bytes(),
         this.#printerState,
       );
