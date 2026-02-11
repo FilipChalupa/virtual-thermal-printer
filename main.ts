@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { serveStatic, upgradeWebSocket } from 'hono/deno'
 import { parseArgs } from '@std/cli/parse-args'
-import { processEscPosStream } from './escpos.ts'
+import { handleConnection, processEscPosStream } from './escpos.ts'
 
 const flags = parseArgs(Deno.args, {
 	string: ['epos-port', 'escpos-port'],
@@ -107,15 +107,15 @@ Deno.serve(
 	app.fetch,
 )
 
-const escposListener = Deno.listen({
-	port: escposPort,
-})
-console.log(`Listening to ESCPOS on 0.0.0.0:${escposPort}.`)
+if (!Deno.env.get('DENO_DEPLOYMENT_ID')) {
+	const escposListener = Deno.listen({
+		port: escposPort,
+	})
+	console.log(`Listening to ESCPOS on 0.0.0.0:${escposPort}.`)
 
-import { handleConnection } from './escpos.ts'
-
-for await (const conn of escposListener) {
-	;(async () => {
-		await handleConnection(conn, connectedClients)
-	})()
+	for await (const conn of escposListener) {
+		;(async () => {
+			await handleConnection(conn, connectedClients)
+		})()
+	}
 }
