@@ -1,5 +1,5 @@
 import { assertEquals } from '@std/assert/mod.ts'
-import { Alignment, parseEscPos, PrinterState } from './escpos.ts'
+import { Alignment, parseEscPos, PrinterState } from './escpos-transform.ts'
 import iconv from 'iconv-lite'
 
 Deno.test('parseEscPos - Initialize Printer', () => {
