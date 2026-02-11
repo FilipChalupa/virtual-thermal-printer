@@ -1,0 +1,3 @@
+{
+  "post_code_change_commands": ["deno fmt"]
+}
