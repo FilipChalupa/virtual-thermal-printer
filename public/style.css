@@ -23,8 +23,12 @@
 }
 
 .cut-line {
-	border: 1px solid light-dark(#999, #666); /* Solid border for clear visibility */
-	background-color: light-dark(#f0f0f0, #1a1a1a); /* Light background for contrast */
+	border: 1px solid
+		light-dark(#999, #666); /* Solid border for clear visibility */
+	background-color: light-dark(
+		#f0f0f0,
+		#1a1a1a
+	); /* Light background for contrast */
 	height: 20px; /* Give it a fixed height */
 	display: flex; /* Use flexbox for centering text */
 	align-items: center; /* Center vertically */
