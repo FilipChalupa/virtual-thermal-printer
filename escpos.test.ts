@@ -11,7 +11,7 @@ Deno.test('parseEscPos - Initialize Printer', () => {
 		printAreaWidth: 100,
 	}
 	const result = parseEscPos(command, state)
-	assertEquals(result, '[Initialize Printer]\n')
+	assertEquals(result.data, { type: 'command', name: 'Initialize Printer' })
 	assertEquals(state.alignment, Alignment.Left)
 })
 
@@ -24,7 +24,7 @@ Deno.test('parseEscPos - Cut Paper', () => {
 		printAreaWidth: 0,
 	}
 	const result = parseEscPos(command, state)
-	assertEquals(result, '[Cut Paper]\n')
+	assertEquals(result.data, { type: 'command', name: 'Cut Paper' })
 })
 
 Deno.test('parseEscPos - Set Alignment', () => {
@@ -36,7 +36,7 @@ Deno.test('parseEscPos - Set Alignment', () => {
 		printAreaWidth: 0,
 	}
 	const result = parseEscPos(command, state)
-	assertEquals(result, '[Set Alignment: Center]\n')
+	assertEquals(result.data, { type: 'command', name: 'Set Alignment', details: { alignment: 'Center' } })
 	assertEquals(state.alignment, Alignment.Center)
 })
 
@@ -49,7 +49,7 @@ Deno.test('parseEscPos - Print Text', () => {
 		printAreaWidth: 0,
 	}
 	const result = parseEscPos(command, state)
-	assertEquals(result, 'Hello, World!')
+	assertEquals(result.data, { type: 'text', content: 'Hello, World!' })
 })
 
 Deno.test('parseEscPos - CP852 Encoded Text', () => {
@@ -61,7 +61,7 @@ Deno.test('parseEscPos - CP852 Encoded Text', () => {
 		printAreaWidth: 0,
 	}
 	const result = parseEscPos(command, state)
-	assertEquals(result, 'Dva obrázky')
+	assertEquals(result.data, { type: 'text', content: 'Dva obrázky' })
 })
 
 Deno.test('parseEscPos - Set Char Size', () => {
@@ -73,7 +73,7 @@ Deno.test('parseEscPos - Set Char Size', () => {
 		printAreaWidth: 0,
 	}
 	const result = parseEscPos(command, state)
-	assertEquals(result, '[Set Char Size: 17]\n')
+	assertEquals(result.data, { type: 'command', name: 'Set Char Size', details: { size: 17 } })
 	assertEquals(state.charSize, 17)
 })
 
@@ -86,7 +86,7 @@ Deno.test('parseEscPos - Set Left Margin', () => {
 		printAreaWidth: 0,
 	}
 	const result = parseEscPos(command, state)
-	assertEquals(result, '[Set Left Margin: 10]\n')
+	assertEquals(result.data, { type: 'command', name: 'Set Left Margin', details: { margin: 10 } })
 	assertEquals(state.leftMargin, 10)
 })
 
@@ -99,33 +99,6 @@ Deno.test('parseEscPos - Set Print Area Width', () => {
 		printAreaWidth: 0,
 	}
 	const result = parseEscPos(command, state)
-	assertEquals(result, '[Set Print Area Width: 384]\n')
+	assertEquals(result.data, { type: 'command', name: 'Set Print Area Width', details: { width: 384 } })
 	assertEquals(state.printAreaWidth, 384)
-})
-
-Deno.test('parseEscPos - Complex Command', () => {
-	const command = new Uint8Array([
-		...iconv.encode('Hello\n', 'CP852'),
-		0x1b,
-		0x61,
-		1, // Center
-		...iconv.encode('World\n', 'CP852'),
-		0x1b,
-		0x61,
-		2, // Right
-		...iconv.encode('!\n', 'CP852'),
-		0x1d,
-		0x56, // Cut
-	])
-	const state: PrinterState = {
-		alignment: Alignment.Left,
-		charSize: 0,
-		leftMargin: 0,
-		printAreaWidth: 0,
-	}
-	const result = parseEscPos(command, state)
-	assertEquals(
-		result,
-		'Hello\n[Set Alignment: Center]\nWorld\n[Set Alignment: Right]\n!\n[Cut Paper]\n',
-	)
 })

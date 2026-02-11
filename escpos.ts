@@ -1,5 +1,6 @@
 import iconv from 'iconv-lite'
 import { Buffer } from '@std/io/buffer'
+import { EscPosTransformer } from './escpos-transform.ts'
 
 export enum Alignment {
 	Left,
@@ -14,8 +15,29 @@ export interface PrinterState {
 	printAreaWidth: number
 }
 
+// New interfaces for structured parsed blocks
+export interface EscPosText {
+    type: 'text';
+    content: string;
+}
+
+export interface EscPosCommand {
+    type: 'command';
+    name: string; // e.g., 'Initialize Printer', 'Set Alignment', 'Cut Paper'
+    details?: { [key: string]: any }; // object for specific command parameters
+}
+
+export interface EscPosImage {
+    type: 'image';
+    width: number;
+    height: number;
+    data: number[];
+}
+
+export type ParsedEscPosBlock = EscPosText | EscPosCommand | EscPosImage;
+
 export interface ParsedCommandResult {
-	data: string | object | null
+	data: ParsedEscPosBlock | null
 	consumedBytes: number
 }
 
@@ -23,22 +45,24 @@ export function parseEscPos(
 	command: Uint8Array,
 	state: PrinterState,
 ): ParsedCommandResult {
-	let result: string | object | null = null
+	let parsedBlock: ParsedEscPosBlock | null = null
 	let consumedBytes = 0
 	let textBuffer: number[] = []
-
-	const appendText = () => {
-		if (textBuffer.length > 0) {
-			result = (typeof result === 'string' ? result : '') +
-				iconv.decode(new Uint8Array(textBuffer), 'CP852')
-			textBuffer = []
-		}
-	}
 
 	// If the buffer is empty, no command can be parsed.
 	if (command.length === 0) {
 		return { data: null, consumedBytes: 0 }
 	}
+
+	// Helper to create a text block if there's accumulated text
+	const createTextBlock = (): EscPosText | null => {
+		if (textBuffer.length > 0) {
+			const content = iconv.decode(new Uint8Array(textBuffer), 'CP852');
+			textBuffer = []; // Clear buffer after processing
+			return { type: 'text', content: content };
+		}
+		return null;
+	};
 
 	// Always parse from the beginning of the `command` buffer (index 0)
 	const firstByte = command[0]
@@ -59,65 +83,71 @@ export function parseEscPos(
 		}
 
 		if (textBuffer.length > 0) {
-			appendText() // Process the accumulated text
-			consumedBytes = currentTextIndex
-			return { data: result, consumedBytes: consumedBytes }
+			parsedBlock = createTextBlock();
+			consumedBytes = currentTextIndex;
+			return { data: parsedBlock, consumedBytes: consumedBytes };
 		}
 		// If no text was accumulated (e.g., buffer started with only control characters not caught by outer if)
-		// This should theoretically not be reached if firstByte check works.
 		return { data: null, consumedBytes: 0 }
 	}
 
 	// If it's not text, then it must be a control character
 	switch (firstByte) {
 		case 0x0a: // LF
-			appendText() // Ensure any preceding text is processed
-			result = (typeof result === 'string' ? result : '') + '\n'
+			parsedBlock = { type: 'text', content: '\n' };
 			consumedBytes = 1
 			break
 		case 0x1b: // ESC
-			appendText() // Ensure any preceding text is processed
 			if (command.length >= 2) {
 				const nextByte = command[1]
 				switch (nextByte) {
-					case 0x40: // @
-						result = (typeof result === 'string' ? result : '') +
-							'[Initialize Printer]\n'
+					case 0x40: // @ - Initialize Printer
+						state.alignment = Alignment.Left;
+						state.charSize = 0;
+						state.leftMargin = 0;
+						state.printAreaWidth = 0;
+						parsedBlock = { type: 'command', name: 'Initialize Printer' };
 						consumedBytes = 2
 						break
-					case 0x61: // a
+					case 0x61: // a - Set Alignment
 						if (command.length >= 3) {
-							const alignment = command[2]
-							if (alignment === 0 || alignment === 48) {
-								state.alignment = Alignment.Left
-								result = (typeof result === 'string' ? result : '') +
-									'[Set Alignment: Left]\n'
-							} else if (alignment === 1 || alignment === 49) {
-								state.alignment = Alignment.Center
-								result = (typeof result === 'string' ? result : '') +
-									'[Set Alignment: Center]\n'
-							} else if (alignment === 2 || alignment === 50) {
-								state.alignment = Alignment.Right
-								result = (typeof result === 'string' ? result : '') +
-									'[Set Alignment: Right]\n'
+							const alignmentByte = command[2]
+							let alignment: Alignment;
+							let alignmentName: string;
+							if (alignmentByte === 0 || alignmentByte === 48) {
+								alignment = Alignment.Left;
+								alignmentName = 'Left';
+							} else if (alignmentByte === 1 || alignmentByte === 49) {
+								alignment = Alignment.Center;
+								alignmentName = 'Center';
+							} else if (alignmentByte === 2 || alignmentByte === 50) {
+								alignment = Alignment.Right;
+								alignmentName = 'Right';
+							} else {
+								// Unknown alignment value, treat as generic command
+								parsedBlock = { type: 'command', name: 'Set Alignment (unknown)', details: { byte: alignmentByte } };
+								consumedBytes = 3;
+								break;
 							}
-							consumedBytes = 3
+							state.alignment = alignment; // Update printer state
+							parsedBlock = { type: 'command', name: 'Set Alignment', details: { alignment: alignmentName } };
+							consumedBytes = 3;
 						} else {
 							return { data: null, consumedBytes: 0 } // Incomplete command
 						}
 						break
-					case 0x21: // !
+					case 0x21: // ! - Set Font Size/Style
 						if (command.length >= 3) {
-							result = (typeof result === 'string' ? result : '') +
-								`[Set Font: 0x${command[2].toString(16)}]\n`
-							consumedBytes = 3
+							const fontByte = command[2];
+							parsedBlock = { type: 'command', name: 'Set Font', details: { byte: fontByte } };
+							consumedBytes = 3;
 						} else {
 							return { data: null, consumedBytes: 0 } // Incomplete command
 						}
 						break
 					default:
-						result = (typeof result === 'string' ? result : '') +
-							`[ESC 0x${nextByte.toString(16)}]`
+						// Unknown ESC command
+						parsedBlock = { type: 'command', name: 'Unknown ESC Command', details: { byte: nextByte } };
 						consumedBytes = 2
 						break
 				}
@@ -126,36 +156,32 @@ export function parseEscPos(
 			}
 			break
 		case 0x1d: // GS
-			appendText() // Ensure any preceding text is processed
 			if (command.length >= 2) {
 				const nextByte = command[1]
 				switch (nextByte) {
-					case 0x21: // !
+					case 0x21: // ! - Set Character Size
 						if (command.length >= 3) {
-							state.charSize = command[2]
-							result = (typeof result === 'string' ? result : '') +
-								`[Set Char Size: ${state.charSize}]\n`
-							consumedBytes = 3
+							state.charSize = command[2]; // Update printer state
+							parsedBlock = { type: 'command', name: 'Set Char Size', details: { size: state.charSize } };
+							consumedBytes = 3;
 						} else {
 							return { data: null, consumedBytes: 0 } // Incomplete command
 						}
 						break
-					case 0x4c: // L
+					case 0x4c: // L - Set Left Margin
 						if (command.length >= 4) {
-							state.leftMargin = command[2] + command[3] * 256
-							result = (typeof result === 'string' ? result : '') +
-								`[Set Left Margin: ${state.leftMargin}]\n`
-							consumedBytes = 4
+							state.leftMargin = command[2] + command[3] * 256; // Update printer state
+							parsedBlock = { type: 'command', name: 'Set Left Margin', details: { margin: state.leftMargin } };
+							consumedBytes = 4;
 						} else {
 							return { data: null, consumedBytes: 0 } // Incomplete command
 						}
 						break
-					case 0x56: // V
-						result = (typeof result === 'string' ? result : '') +
-							'[Cut Paper]\n'
+					case 0x56: // V - Cut Paper
+						parsedBlock = { type: 'command', name: 'Cut Paper' };
 						consumedBytes = 2
 						break
-					case 0x76: // v
+					case 0x76: // v - Print Raster Bit Image (GS v 0)
 						// Check for 'GS v 0' command
 						if (command.length >= 3 && command[2] === 0x30) {
 							// Check if the full image header is present (GS v 0 m fn xL xH yL yH)
@@ -167,16 +193,19 @@ export function parseEscPos(
 								const rawWidth = xL + xH * 256
 								const height = yL + yH * 256
 
+								// The spec usually defines width in bytes, so actual pixel width is rawWidth * 8
+								const expectedImageDataSize = rawWidth * height;
+
 								// Check if the full image data is present
-								if (8 + (rawWidth * height) <= command.length) {
-									const imageData = command.subarray(8, 8 + (rawWidth * height))
-									result = {
+								if (8 + expectedImageDataSize <= command.length) {
+									const imageData = command.subarray(8, 8 + expectedImageDataSize)
+									parsedBlock = {
 										type: 'image',
 										width: rawWidth * 8, // Corrected pixel width for frontend
 										height: height,
 										data: Array.from(imageData),
 									}
-									consumedBytes = 8 + (rawWidth * height)
+									consumedBytes = 8 + expectedImageDataSize
 								} else {
 									return { data: null, consumedBytes: 0 } // Incomplete image data
 								}
@@ -184,22 +213,23 @@ export function parseEscPos(
 								return { data: null, consumedBytes: 0 } // Incomplete image header
 							}
 						} else {
-							consumedBytes = 2 // Not a 'GS v 0' command, skip 'GS v'
+							// Not a 'GS v 0' command or malformed 'GS v'
+							parsedBlock = { type: 'command', name: 'Unknown GS v Command', details: { byte: command[2] } };
+							consumedBytes = 3; // Consume GS v 0 byte
 						}
 						break
-					case 0x57: // W
+					case 0x57: // W - Set Print Area Width
 						if (command.length >= 4) {
-							state.printAreaWidth = command[2] + command[3] * 256
-							result = (typeof result === 'string' ? result : '') +
-								`[Set Print Area Width: ${state.printAreaWidth}]\n`
-							consumedBytes = 4
+							state.printAreaWidth = command[2] + command[3] * 256; // Update printer state
+							parsedBlock = { type: 'command', name: 'Set Print Area Width', details: { width: state.printAreaWidth } };
+							consumedBytes = 4;
 						} else {
 							return { data: null, consumedBytes: 0 } // Incomplete command
 						}
 						break
 					default:
-						result = (typeof result === 'string' ? result : '') +
-							`[GS 0x${nextByte.toString(16)}]`
+						// Unknown GS command
+						parsedBlock = { type: 'command', name: 'Unknown GS Command', details: { byte: nextByte } };
 						consumedBytes = 2
 						break
 				}
@@ -209,13 +239,7 @@ export function parseEscPos(
 			break
 	}
 
-	// This appendText() is mostly for handling cases where a command is directly followed by text,
-	// and the control command processing didn't use appendText() itself.
-	// For example, if a `LF` is processed, result already has the `\n`, textBuffer is empty.
-	// If an `ESC` command is processed, result is set to `[ESC...]`, textBuffer is empty.
-	// This final appendText() acts as a safety net.
-	appendText()
-	return { data: result, consumedBytes: consumedBytes }
+	return { data: parsedBlock, consumedBytes: consumedBytes }
 }
 
 export async function handleConnection(
@@ -227,47 +251,23 @@ export async function handleConnection(
 		? `${remoteAddr.hostname}:${remoteAddr.port}`
 		: 'unknown'
 	console.log(`New connection from ${remoteAddrString}.`)
-	const state: PrinterState = {
-		alignment: Alignment.Left,
-		charSize: 0,
-		leftMargin: 0,
-		printAreaWidth: 0,
-	}
-	const readBuffer = new Uint8Array(1024)
-	const accumulatedBuffer = new Buffer()
+	
+	// Create an instance of the TransformStream
+	const escPosTransformer = new TransformStream(new EscPosTransformer());
 
-	while (true) {
-		try {
-			const n = await conn.read(readBuffer)
-			if (n === null) {
-				break // Connection closed
+	try {
+		// Pipe the incoming connection stream through the ESC/POS transformer
+		const parsedBlocks = conn.readable.pipeThrough(escPosTransformer);
+
+		for await (const block of parsedBlocks) {
+			const dataToSend = JSON.stringify(block);
+			for (const client of connectedClients) {
+				client.send(dataToSend);
 			}
-			// Write newly read data to the accumulated buffer
-			accumulatedBuffer.writeSync(readBuffer.subarray(0, n))
-
-			while (true) {
-				const parsedResult = parseEscPos(accumulatedBuffer.bytes(), state)
-
-				if (parsedResult.consumedBytes > 0) {
-					if (parsedResult.data) {
-						const dataToSend = typeof parsedResult.data === 'string'
-							? JSON.stringify({ type: 'text', content: parsedResult.data })
-							: JSON.stringify(parsedResult.data)
-						for (const client of connectedClients) {
-							client.send(dataToSend)
-						}
-					}
-					// Remove consumed bytes from the accumulated buffer
-					accumulatedBuffer.readSync(new Uint8Array(parsedResult.consumedBytes))
-				} else {
-					// No complete command parsed, wait for more data
-					break
-				}
-			}
-		} catch (error) {
-			console.error('Error reading from connection:', error)
-			break
 		}
+	} catch (error) {
+		console.error('Error in handling connection or parsing stream:', error)
+	} finally {
+		console.log(`Connection from ${remoteAddrString} closed.`)
 	}
-	console.log(`Connection from ${remoteAddrString} closed.`)
 }
