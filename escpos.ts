@@ -5,6 +5,30 @@ import {
 	PrinterState as _PrinterState,
 } from './escpos-transform.ts'
 
+export async function processEscPosStream(
+	// deno-lint-ignore no-explicit-any
+	stream: ReadableStream<any>,
+	// deno-lint-ignore no-explicit-any
+	connectedClients: Set<any>,
+) {
+	// Create an instance of the TransformStream
+	const escPosTransformer = new TransformStream(new EscPosTransformer())
+
+	try {
+		// Pipe the incoming connection stream through the ESC/POS transformer
+		const parsedBlocks = stream.pipeThrough(escPosTransformer)
+
+		for await (const block of parsedBlocks) {
+			const dataToSend = JSON.stringify(block)
+			for (const client of connectedClients) {
+				client.send(dataToSend)
+			}
+		}
+	} catch (error) {
+		console.error('Error in handling connection or parsing stream:', error)
+	}
+}
+
 export async function handleConnection(
 	conn: Deno.Conn, // deno-lint-ignore no-explicit-any
 	connectedClients: Set<any>,
@@ -15,22 +39,7 @@ export async function handleConnection(
 		: 'unknown'
 	console.log(`New connection from ${remoteAddrString}.`)
 
-	// Create an instance of the TransformStream
-	const escPosTransformer = new TransformStream(new EscPosTransformer())
+	await processEscPosStream(conn.readable, connectedClients)
 
-	try {
-		// Pipe the incoming connection stream through the ESC/POS transformer
-		const parsedBlocks = conn.readable.pipeThrough(escPosTransformer)
-
-		for await (const block of parsedBlocks) {
-			const dataToSend = JSON.stringify(block)
-			for (const client of connectedClients) {
-				client.send(dataToSend)
-			}
-		}
-	} catch (error) {
-		console.error('Error in handling connection or parsing stream:', error)
-	} finally {
-		console.log(`Connection from ${remoteAddrString} closed.`)
-	}
+	console.log(`Connection from ${remoteAddrString} closed.`)
 }

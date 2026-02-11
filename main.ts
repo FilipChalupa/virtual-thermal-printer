@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { serveStatic, upgradeWebSocket } from 'hono/deno'
 import { parseArgs } from '@std/cli/parse-args'
+import { processEscPosStream } from './escpos.ts'
 
 const flags = parseArgs(Deno.args, {
 	string: ['epos-port', 'escpos-port'],
@@ -22,8 +23,33 @@ const app = new Hono()
 
 const eposEndpoint = '/cgi-bin/epos/service.cgi'
 app.use(eposEndpoint, cors())
-app.post(eposEndpoint, async (_context) => {
-	// @TODO
+app.post(eposEndpoint, async (context) => {
+	const requestBody = await context.req.text()
+
+	const commandMatch = requestBody.match(/<command>([^<]+)<\/command>/)
+	if (!commandMatch || !commandMatch[1]) {
+		return context.text('Invalid ePOS request', 400)
+	}
+
+	const hexCommand = commandMatch[1]
+	const commandBytes = new Uint8Array(
+		hexCommand.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16)),
+	)
+
+	const stream = new ReadableStream({
+		start(controller) {
+			controller.enqueue(commandBytes)
+			controller.close()
+		},
+	})
+
+	await processEscPosStream(stream, connectedClients)
+
+	return context.text(
+		`<?xml version="1.0" encoding="utf-8"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><response xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print" success="true" code="" status="0" batterystatus="0" printjobid="2" /></s:Body></s:Envelope>`,
+		200,
+		{ 'Content-Type': 'text/xml' },
+	)
 })
 // deno-lint-ignore no-explicit-any
 const connectedClients = new Set<any>()
