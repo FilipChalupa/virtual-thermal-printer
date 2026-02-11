@@ -1,7 +1,7 @@
 import iconv from 'iconv-lite'
 import { Buffer } from '@std/io/buffer'
-import { Image } from 'https://deno.land/x/imagescript@v1.2.14/mod.ts'
-import { encodeBase64 } from 'jsr:@std/encoding/base64'
+import { Image } from 'imagescript'
+import { encodeBase64 } from '@std/encoding/base64'
 
 export enum Alignment {
 	Left,
