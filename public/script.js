@@ -68,9 +68,7 @@ function connectWebSocket() {
 	} // Missing closing brace for socket.onmessage
 
 	function scrollToBottom() {
-		requestAnimationFrame(() => {
-			printerOutput.scrollTop = printerOutput.scrollHeight
-		})
+		printerOutput.lastElementChild?.scrollIntoView({ behavior: 'smooth' })
 	}
 	socket.onclose = () => {
 		console.log(
