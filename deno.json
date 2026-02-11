@@ -17,8 +17,8 @@
 		"@std/encoding/base64": "jsr:@std/encoding@^0.224.0/base64"
 	},
 	"tasks": {
-		"start": "deno run --allow-net --allow-read main.ts",
-		"dev": "deno run --allow-net --allow-read --watch main.ts",
+		"start": "deno run --allow-net --allow-read --allow-env main.ts",
+		"dev": "deno run --allow-net --allow-read --allow-env --watch main.ts",
 		"escpos_test": "deno test --allow-net escpos.test.ts",
 		"test": "deno test",
 		"check": "deno check main.ts escpos.ts escpos.test.ts escpos-transform.ts",
