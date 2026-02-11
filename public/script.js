@@ -36,6 +36,14 @@ function animateScroll() {
     }
 }
 
+function limitContentHeight() {
+    const threshold = 2 * printerOutput.clientHeight;
+    // Loop while scrollHeight exceeds the threshold and there's content to remove
+    while (printerOutput.scrollHeight > threshold && printerOutput.firstChild) {
+        printerOutput.removeChild(printerOutput.firstChild);
+    }
+}
+
 function connectWebSocket() {
 	socket = new WebSocket(`ws://${location.host}/stream`)
 
@@ -50,27 +58,27 @@ function connectWebSocket() {
 
 	socket.onmessage = (event) => {
 		const data = JSON.parse(event.data)
+		console.log(data)
 		if (data.type === 'image') {
 			const img = document.createElement('img')
 			img.src = data.base64
 			img.width = data.width
 			img.height = data.height
 			printerOutput.appendChild(img)
-			updateScrollTargetAndAnimate()
 		} else if (data.type === 'text') {
 			data.content.split('\n').forEach((line) => {
 				const div = document.createElement('div')
 				div.textContent = line
 				printerOutput.appendChild(div)
 			})
-			updateScrollTargetAndAnimate()
 		} else if (data.type === 'command' && data.name === 'Cut Paper') {
 			const cutLine = document.createElement('div')
 			cutLine.className = 'cut-line'
 			cutLine.textContent = '--- CUT ---'
 			printerOutput.appendChild(cutLine)
-			updateScrollTargetAndAnimate()
 		}
+		updateScrollTargetAndAnimate()
+		limitContentHeight()
 	} // Closing brace for socket.onmessage, added for clarity.
 
 	socket.onclose = () => {
