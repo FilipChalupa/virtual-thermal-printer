@@ -157,6 +157,14 @@ export function parseEscPos(
 							return { data: null, consumedBytes: 0 } // Incomplete command
 						}
 						break
+					case 0x69: // i - Full cut (common implementation for some printers)
+						parsedBlock = {
+							type: 'command',
+							name: 'Cut Paper',
+							details: { command: 'ESC i', cutType: 'Full' },
+						}
+						consumedBytes = 2
+						break
 					default:
 						// Unknown ESC command
 						parsedBlock = {
@@ -201,9 +209,25 @@ export function parseEscPos(
 							return { data: null, consumedBytes: 0 } // Incomplete command
 						}
 						break
-					case 0x56: // V - Cut Paper
-						parsedBlock = { type: 'command', name: 'Cut Paper' }
-						consumedBytes = 2
+					case 0x56: // V - Cut Paper (GS V n)
+						if (command.length >= 3) {
+							const cutTypeByte = command[2]
+							let cutType = 'Full'; // Default to full cut
+							if (cutTypeByte === 0x01 || cutTypeByte === 0x31) { // 1 or ASCII '1' for partial
+								cutType = 'Partial';
+							} else if (cutTypeByte === 0x00 || cutTypeByte === 0x30) { // 0 or ASCII '0' for full
+								cutType = 'Full';
+							} else {
+								// Unknown cut type, still consider it a cut
+								// Optionally, could set cutType to 'Unknown' or log a warning
+							}
+							parsedBlock = { type: 'command', name: 'Cut Paper', details: { command: 'GS V n', cutType: cutType } }
+							consumedBytes = 3
+						} else {
+							// GS V without n (default to full cut if no n is specified)
+							parsedBlock = { type: 'command', name: 'Cut Paper', details: { command: 'GS V', cutType: 'Full' } }
+							consumedBytes = 2
+						}
 						break
 					case 0x76: // v - Print Raster Bit Image (GS v 0)
 						// Check for 'GS v 0' command

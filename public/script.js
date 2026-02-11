@@ -58,8 +58,14 @@ function connectWebSocket() {
 				printerOutput.appendChild(div)
 			})
 			scrollToBottom()
+		} else if (data.type === 'command' && data.name === 'Cut Paper') {
+			const cutLine = document.createElement('div')
+			cutLine.className = 'cut-line'
+			cutLine.textContent = '--- CUT ---'
+			printerOutput.appendChild(cutLine)
+			scrollToBottom()
 		}
-	}
+	} // Missing closing brace for socket.onmessage
 
 	function scrollToBottom() {
 		requestAnimationFrame(() => {

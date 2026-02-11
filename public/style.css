@@ -20,3 +20,15 @@
 	height: auto;
 	display: block;
 }
+
+.cut-line {
+	border: 1px solid #999; /* Solid border for clear visibility */
+	background-color: #f0f0f0; /* Light background for contrast */
+	height: 20px; /* Give it a fixed height */
+	display: flex; /* Use flexbox for centering text */
+	align-items: center; /* Center vertically */
+	justify-content: center; /* Center horizontally */
+	margin: 10px 0;
+	font-size: 0.8em;
+	color: #666;
+}

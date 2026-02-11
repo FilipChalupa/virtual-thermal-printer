@@ -24,7 +24,7 @@ Deno.test('parseEscPos - Cut Paper', () => {
 		printAreaWidth: 0,
 	}
 	const result = parseEscPos(command, state)
-	assertEquals(result.data, { type: 'command', name: 'Cut Paper' })
+	assertEquals(result.data, { type: 'command', name: 'Cut Paper', details: { command: 'GS V', cutType: 'Full' } })
 })
 
 Deno.test('parseEscPos - Set Alignment', () => {
@@ -117,4 +117,52 @@ Deno.test('parseEscPos - Set Print Area Width', () => {
 		details: { width: 384 },
 	})
 	assertEquals(state.printAreaWidth, 384)
+})
+
+Deno.test('parseEscPos - Cut Paper (ESC i)', () => {
+	const command = new Uint8Array([0x1b, 0x69])
+	const state: PrinterState = {
+		alignment: Alignment.Left,
+		charSize: 0,
+		leftMargin: 0,
+		printAreaWidth: 0,
+	}
+	const result = parseEscPos(command, state)
+	assertEquals(result.data, { type: 'command', name: 'Cut Paper', details: { command: 'ESC i', cutType: 'Full' } })
+})
+
+Deno.test('parseEscPos - Cut Paper (GS V without argument)', () => {
+	const command = new Uint8Array([0x1d, 0x56])
+	const state: PrinterState = {
+		alignment: Alignment.Left,
+		charSize: 0,
+		leftMargin: 0,
+		printAreaWidth: 0,
+	}
+	const result = parseEscPos(command, state)
+	assertEquals(result.data, { type: 'command', name: 'Cut Paper', details: { command: 'GS V', cutType: 'Full' } })
+})
+
+Deno.test('parseEscPos - Cut Paper (GS V 0x00)', () => {
+	const command = new Uint8Array([0x1d, 0x56, 0x00])
+	const state: PrinterState = {
+		alignment: Alignment.Left,
+		charSize: 0,
+		leftMargin: 0,
+		printAreaWidth: 0,
+	}
+	const result = parseEscPos(command, state)
+	assertEquals(result.data, { type: 'command', name: 'Cut Paper', details: { command: 'GS V n', cutType: 'Full' } })
+})
+
+Deno.test('parseEscPos - Cut Paper (GS V 0x01)', () => {
+	const command = new Uint8Array([0x1d, 0x56, 0x01])
+	const state: PrinterState = {
+		alignment: Alignment.Left,
+		charSize: 0,
+		leftMargin: 0,
+		printAreaWidth: 0,
+	}
+	const result = parseEscPos(command, state)
+	assertEquals(result.data, { type: 'command', name: 'Cut Paper', details: { command: 'GS V n', cutType: 'Partial' } })
 })
