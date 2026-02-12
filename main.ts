@@ -90,7 +90,7 @@ app.get(
 app.use(
 	'/*',
 	serveStatic({
-		root: './public',
+		root: `${import.meta.dirname}/public`,
 	}),
 )
 
