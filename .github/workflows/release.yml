@@ -12,6 +12,13 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            asset_name: virtual-thermal-printer-linux
+          - os: macos-latest
+            asset_name: virtual-thermal-printer-macos
+          - os: windows-latest
+            asset_name: virtual-thermal-printer-windows.exe
 
     steps:
       - name: Checkout code
@@ -23,11 +30,19 @@ jobs:
       - name: Compile application
         run: deno task compile
 
+      - name: Rename executable
+        run: mv virtual-thermal-printer ${{ matrix.asset_name }}
+        if: matrix.os != 'windows-latest'
+
+      - name: Rename executable (Windows)
+        run: mv virtual-thermal-printer.exe ${{ matrix.asset_name }}
+        if: matrix.os == 'windows-latest'
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: virtual-thermal-printer-${{ matrix.os }}
-          path: virtual-thermal-printer*
+          name: ${{ matrix.asset_name }}
+          path: ${{ matrix.asset_name }}
 
   release:
     name: Create Release
@@ -53,12 +68,12 @@ jobs:
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
+        with:
+          path: artifacts
 
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            virtual-thermal-printer-*/virtual-thermal-printer
-            virtual-thermal-printer-*/*.exe
+          files: artifacts/*/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
