@@ -1,4 +1,24 @@
-curl 'http://127.0.0.1:8000/cgi-bin/epos/service.cgi?devid=local_printer' \
+curl 'http://localhost:8000/cgi-bin/epos/service.cgi?devid=local_printer' \
+  -H 'accept: */*' \
+  -H 'accept-language: cs,en-US;q=0.9,en;q=0.8,sk;q=0.7,de;q=0.6' \
+  -H 'content-type: text/xml' \
+  -H 'origin: http://localhost:4001' \
+  -H 'priority: u=1, i' \
+  -H 'referer: http://localhost:4001/' \
+  -H 'sec-ch-ua: "Microsoft Edge";v="129", "Not=A?Brand";v="8", "Chromium";v="129"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "Windows"' \
+  -H 'sec-fetch-dest: empty' \
+  -H 'sec-fetch-mode: cors' \
+  -H 'sec-fetch-site: cross-site' \
+  -H 'user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36 Edg/129.0.0.0' \
+  --data-raw $'<?xml version="1.0" encoding="utf-8"?>\n\u0009<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">\n\u0009\u0009\u0009<s:Header>\n\u0009\u0009\u0009\u0009\u0009<parameter xmlns="http://www.epson-pos.com/schemas/2011/03/eposprint">\n\u0009\u0009\u0009\u0009\u0009\u0009\u0009<devid>local_printer</devid>\n\u0009\u0009\u0009\u0009\u0009\u0009\u0009<timeout>60000</timeout>\n\u0009\u0009\u0009\u0009\u0009\u0009\u0009<printjobid>1</printjobid>\n\u0009\u0009\u0009\u0009\u0009</parameter>\n\u0009\u0009\u0009</s:Header>\n\u0009\u0009\u0009<s:Body>\n\u0009\u0009\u0009\u0009\u0009<epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">\n\u0009\u0009\u0009\u0009\u0009\u0009\u0009<command>1b401d61001b4d001b20001c5300001b321b7b001c2e1b2d001c2d001b45001d42001d21001d4c00001d5740021b61001b2400001b2d001c2d001b45001d42001d2100200a1b2d001c2d001b45001d42001d21001d4c00001d5740021b61001b2400001b2d001c2d001b45001d42001d2100200a1b2d001c2d001b45001d42001d21001d4c00001d5740021b61001b2400001b2d001c2d001b45001d42001d2100200a1b2d001c2d001b45001d42001d21001d4c00001d5740021b61001b2400001b5cc8011b2d001c2d001b45001d42001d21001d211131393a30390a1b2d001c2d001b45001d42001d21001d4c00001d5740021b61001b2400001b5cec011b2d001c2d001b45001d42001d210032302e2031302e0a1b2d001c2d001b45001d42001d21001d4c00001d5740021b61001c43001c2e1b74019595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595950a1b2d001c2d001b45001d42001d21001d4c00001d5740021b61001b2400001b5c00001b2d001c2d001b45001d42001d21001d211131781b2454001b5c00001b2d001c2d001b45001d42001d21001d2111436f6c6420627265770a1b2d001c2d001b45001d42001d21001d4c00001d5740021b61001b2400001b2d001c2d001b45001d42001d2100201b2454001b2d001c2d001b45001d42001d2100200a1b2d001c2d001b45001d42001d21001d4c00001d5740021b61001b2400001b2d001c2d001b45001d42001d2100201b2454001b2d001c2d001b45001d42001d2100200a1b2d001c2d001b45001d42001d21001d4c00001d5740021b61001b2400001b2d001c2d001b45001d42001d2100201b2454001b2d001c2d001b45001d42001d2100200a1d5642001d7201</command>\n\u0009\u0009\u0009\u0009\u0009</epos-print>\n\u0009\u0009\u0009</s:Body>\n\u0009</s:Envelope>'
+
+
+echo '----------------------------------'
+
+
+curl 'http://localhost:8000/cgi-bin/epos/service.cgi?devid=local_printer' \
   -H 'Accept: */*' \
   -H 'Accept-Language: cs,en-US;q=0.9,en;q=0.8,sk;q=0.7,de;q=0.6' \
   -H 'Connection: keep-alive' \
