@@ -48,7 +48,7 @@ const gitCommit = new Deno.Command('git', {
 await gitCommit.output()
 
 const gitTag = new Deno.Command('git', {
-	args: ['tag', `v${newVersion}`],
+	args: ['tag', '-a', `v${newVersion}`, '-m', `Version ${newVersion}`],
 })
 await gitTag.output()
 
