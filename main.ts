@@ -4,19 +4,40 @@ import { serveStatic, upgradeWebSocket } from 'hono/deno'
 import { parseArgs } from '@std/cli/parse-args'
 import { handleConnection, processEscPosStream } from './escpos.ts'
 
+const appVersion = (() => {
+	try {
+		const denoConfig = JSON.parse(Deno.readTextFileSync('./deno.json'))
+		if (denoConfig) {
+			const { version } = denoConfig
+			if (typeof version === 'string') {
+				return version
+			}
+		}
+	} catch (event) {
+		console.error(
+			'Failed to read app version from deno.json:',
+			event instanceof Error ? event.message : event,
+		)
+	}
+	return 'unknown'
+})()
+console.log(`App version: ${appVersion}`)
+
 const flags = parseArgs(Deno.args, {
 	string: ['http', 'socket'],
 	default: { 'http': '80', 'socket': '9100' },
 })
 
-const eposPort = parseInt(flags['http'])
-if (isNaN(eposPort) || eposPort < 1 || eposPort > 65535) {
-	throw new Error('Invalid HTTP port.')
+function validatePort(portValue: string | number, portName: string): number {
+	const port = typeof portValue === 'string' ? parseInt(portValue) : portValue
+	if (isNaN(port) || port < 1 || port > 65535) {
+		throw new Error(`Invalid ${portName} port.`)
+	}
+	return port
 }
-const escposPort = parseInt(flags['socket'])
-if (isNaN(escposPort) || escposPort < 1 || escposPort > 65535) {
-	throw new Error('Invalid Socket port.')
-}
+
+const httpPort = validatePort(flags['http'], 'HTTP')
+const socketPort = validatePort(flags['socket'], 'Socket')
 
 const app = new Hono()
 
@@ -96,7 +117,7 @@ app.use(
 
 Deno.serve(
 	{
-		port: eposPort,
+		port: httpPort,
 		onListen(localAddress) {
 			console.log(
 				`Listening to HTTP on http://${localAddress.hostname}:${localAddress.port}.`,
@@ -108,9 +129,9 @@ Deno.serve(
 
 if (!Deno.env.get('DENO_DEPLOYMENT_ID')) {
 	const escposListener = Deno.listen({
-		port: escposPort,
+		port: socketPort,
 	})
-	console.log(`Listening to Socket on 0.0.0.0:${escposPort}.`)
+	console.log(`Listening to Socket on 0.0.0.0:${socketPort}.`)
 
 	for await (const conn of escposListener) {
 		;(async () => {
