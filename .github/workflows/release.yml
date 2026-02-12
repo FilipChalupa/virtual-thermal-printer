@@ -55,11 +55,10 @@ jobs:
         uses: actions/download-artifact@v4
 
       - name: Upload Release Assets
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: |
-            virtual-thermal-printer-ubuntu-latest/virtual-thermal-printer
-            virtual-thermal-printer-macos-latest/virtual-thermal-printer
-            virtual-thermal-printer-windows-latest/virtual-thermal-printer.exe
+            virtual-thermal-printer-*/virtual-thermal-printer
+            virtual-thermal-printer-*/*.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
