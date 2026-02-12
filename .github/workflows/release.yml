@@ -33,6 +33,8 @@ jobs:
     name: Create Release
     runs-on: ubuntu-latest
     needs: build
+    permissions:
+      contents: write
     steps:
       - name: Get tag
         id: tag
