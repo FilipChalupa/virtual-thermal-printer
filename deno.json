@@ -25,7 +25,7 @@
 		"check": "deno check main.ts escpos.ts escpos.test.ts escpos-transform.ts",
 		"fmt": "deno fmt",
 		"lint": "deno lint",
-		"compile": "deno compile --allow-net --allow-read --allow-env --include public -o virtual-thermal-printer main.ts",
+		"compile": "deno compile --allow-net --allow-read --allow-env --include public --include deno.json -o virtual-thermal-printer main.ts",
 		"version": "deno run --allow-read --allow-write --allow-run scripts/version.ts"
 	}
 }
