@@ -34,6 +34,10 @@ switch (part) {
 
 denoJson.version = newVersion
 await Deno.writeTextFile(denoJsonPath, JSON.stringify(denoJson, null, '	'))
+const denoFmt = new Deno.Command('deno', {
+	args: ['fmt'],
+})
+await denoFmt.output()
 
 console.log(`Version bumped to ${newVersion}`)
 
