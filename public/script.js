@@ -1,4 +1,5 @@
 const printerOutput = document.getElementById('printer-output')
+const paper = printerOutput.querySelector('.paper')
 let socket
 let reconnectInterval = 1000 // Initial reconnect attempt after 1 second
 
@@ -39,8 +40,8 @@ function animateScroll() {
 function limitContentHeight() {
 	const threshold = 2 * printerOutput.clientHeight
 	// Loop while scrollHeight exceeds the threshold and there's content to remove
-	while (printerOutput.scrollHeight > threshold && printerOutput.firstChild) {
-		printerOutput.removeChild(printerOutput.firstChild)
+	while (printerOutput.scrollHeight > threshold && paper.firstChild) {
+		paper.removeChild(paper.firstChild)
 	}
 }
 
@@ -52,8 +53,8 @@ function connectWebSocket() {
 		console.log('WebSocket connected.')
 		reconnectInterval = 1000 // Reset reconnect interval on successful connection
 		// Clear existing content on successful reconnect
-		while (printerOutput.firstChild) {
-			printerOutput.removeChild(printerOutput.firstChild)
+		while (paper.firstChild) {
+			paper.removeChild(paper.firstChild)
 		}
 	}
 
@@ -65,18 +66,18 @@ function connectWebSocket() {
 			img.src = data.base64
 			img.width = data.width
 			img.height = data.height
-			printerOutput.appendChild(img)
+			paper.appendChild(img)
 		} else if (data.type === 'text') {
 			data.content.split('\n').forEach((line) => {
 				const div = document.createElement('div')
 				div.textContent = line
-				printerOutput.appendChild(div)
+				paper.appendChild(div)
 			})
 		} else if (data.type === 'command' && data.name === 'Cut Paper') {
 			const cutLine = document.createElement('div')
 			cutLine.className = 'cut-line'
 			cutLine.textContent = '--- CUT ---'
-			printerOutput.appendChild(cutLine)
+			paper.appendChild(cutLine)
 		}
 		updateScrollTargetAndAnimate()
 		limitContentHeight()

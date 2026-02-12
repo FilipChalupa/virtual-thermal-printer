@@ -15,14 +15,24 @@ body {
 }
 
 #printer-output {
-	height: 80vh; /* Example height, adjust as needed */
-	overflow-y: auto;
-	border: 1px solid light-dark(#ccc, #333); /* Just for visualization */
-	padding: 10px;
-	scrollbar-gutter: stable both-sides;
 	color-scheme: light;
+	display: flex;
+	flex-direction: column;
+	height: 80vh; /* Example height, adjust as needed */
+	overflow-y: scroll;
+	border: 1px solid light-dark(#ccc, #333); /* Just for visualization */
+	scrollbar-gutter: stable both-sides;
+}
+
+.paper {
 	background-color: white;
 	color: black;
+	padding: 10px;
+	margin-top: auto;
+}
+
+.paper:empty {
+	display: none;
 }
 
 #printer-output img {
