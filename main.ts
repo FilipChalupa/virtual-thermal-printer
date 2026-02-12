@@ -6,7 +6,9 @@ import { handleConnection, processEscPosStream } from './escpos.ts'
 
 const appVersion = (() => {
 	try {
-		const denoConfig = JSON.parse(Deno.readTextFileSync(`${import.meta.dirname}/deno.json`))
+		const denoConfig = JSON.parse(
+			Deno.readTextFileSync(`${import.meta.dirname}/deno.json`),
+		)
 		if (denoConfig) {
 			const { version } = denoConfig
 			if (typeof version === 'string') {
