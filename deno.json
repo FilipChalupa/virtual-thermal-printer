@@ -19,7 +19,7 @@
 	},
 	"tasks": {
 		"start": "deno run --allow-net --allow-read --allow-env main.ts",
-		"dev": "deno run --allow-net --allow-read --allow-env --watch main.ts",
+		"dev": "deno run --allow-net --allow-read --allow-env --watch main.ts --http 8000",
 		"escpos_test": "deno test --allow-net escpos.test.ts",
 		"test": "deno test",
 		"check": "deno check main.ts escpos.ts escpos.test.ts escpos-transform.ts",

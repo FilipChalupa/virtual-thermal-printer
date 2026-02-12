@@ -5,17 +5,17 @@ import { parseArgs } from '@std/cli/parse-args'
 import { handleConnection, processEscPosStream } from './escpos.ts'
 
 const flags = parseArgs(Deno.args, {
-	string: ['epos-port', 'escpos-port'],
-	default: { 'epos-port': '8000', 'escpos-port': '9100' },
+	string: ['http', 'socket'],
+	default: { 'http': '80', 'socket': '9100' },
 })
 
-const eposPort = parseInt(flags['epos-port'])
+const eposPort = parseInt(flags['http'])
 if (isNaN(eposPort) || eposPort < 1 || eposPort > 65535) {
-	throw new Error('Invalid Epos port.')
+	throw new Error('Invalid HTTP port.')
 }
-const escposPort = parseInt(flags['escpos-port'])
+const escposPort = parseInt(flags['socket'])
 if (isNaN(escposPort) || escposPort < 1 || escposPort > 65535) {
-	throw new Error('Invalid Escpos port.')
+	throw new Error('Invalid Socket port.')
 }
 
 const app = new Hono()
@@ -99,7 +99,7 @@ Deno.serve(
 		port: eposPort,
 		onListen(localAddress) {
 			console.log(
-				`Listening to EPOS on http://${localAddress.hostname}:${localAddress.port}.`,
+				`Listening to HTTP on http://${localAddress.hostname}:${localAddress.port}.`,
 			)
 		},
 	},
@@ -110,7 +110,7 @@ if (!Deno.env.get('DENO_DEPLOYMENT_ID')) {
 	const escposListener = Deno.listen({
 		port: escposPort,
 	})
-	console.log(`Listening to ESCPOS on 0.0.0.0:${escposPort}.`)
+	console.log(`Listening to Socket on 0.0.0.0:${escposPort}.`)
 
 	for await (const conn of escposListener) {
 		;(async () => {
