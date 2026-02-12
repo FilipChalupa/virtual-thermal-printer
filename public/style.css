@@ -24,11 +24,16 @@ body {
 	scrollbar-gutter: stable both-sides;
 }
 
+#printer-output::before {
+	content: '';
+	flex-basis: 100%;
+	flex-shrink: 0;
+}
+
 .paper {
 	background-color: white;
 	color: black;
 	padding: 10px;
-	margin-top: auto;
 }
 
 .paper:empty {

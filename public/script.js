@@ -38,7 +38,7 @@ function animateScroll() {
 }
 
 function limitContentHeight() {
-	const threshold = 2 * printerOutput.clientHeight
+	const threshold = 10 * printerOutput.clientHeight
 	// Loop while scrollHeight exceeds the threshold and there's content to remove
 	while (printerOutput.scrollHeight > threshold && paper.firstChild) {
 		paper.removeChild(paper.firstChild)
