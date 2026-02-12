@@ -20,6 +20,9 @@ body {
 	border: 1px solid light-dark(#ccc, #333); /* Just for visualization */
 	padding: 10px;
 	scrollbar-gutter: stable both-sides;
+	color-scheme: light;
+	background-color: white;
+	color: black;
 }
 
 #printer-output img {
