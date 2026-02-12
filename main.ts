@@ -6,8 +6,7 @@ import { handleConnection, processEscPosStream } from './escpos.ts'
 
 const flags = parseArgs(Deno.args, {
 	string: ['epos-port', 'escpos-port'],
-	boolean: ['recall'],
-	default: { 'epos-port': '8000', 'escpos-port': '9100', recall: false },
+	default: { 'epos-port': '8000', 'escpos-port': '9100' },
 })
 
 const eposPort = parseInt(flags['epos-port'])
