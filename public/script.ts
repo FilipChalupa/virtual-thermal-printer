@@ -1,16 +1,36 @@
-const printerOutput = document.getElementById('printer-output')
-const paper = printerOutput.querySelector('.paper')
-let socket
+import { ParsedEscPosBlock, EscPosText, EscPosCommand, EscPosImage, Alignment } from '../shared/types.ts'
+
+// Type guards for narrowing ParsedEscPosBlock
+function isEscPosText(block: ParsedEscPosBlock): block is EscPosText {
+	return block.type === 'text'
+}
+
+function isEscPosCommand(block: ParsedEscPosBlock): block is EscPosCommand {
+	return block.type === 'command'
+}
+
+function isEscPosImage(block: ParsedEscPosBlock): block is EscPosImage {
+	return block.type === 'image'
+}
+
+
+const printerOutput = document.getElementById('printer-output') as HTMLDivElement | null
+if (!printerOutput) {
+	throw new Error('Printer output element not found')
+}
+const paper = printerOutput.querySelector('.paper') as HTMLDivElement | null
+if (!paper) {
+	throw new Error('Paper element not found')
+}
+
+let socket: WebSocket | undefined
 let reconnectInterval = 1000 // Initial reconnect attempt after 1 second
 
-let scrollTarget = 0 // Desired scroll position
-let scrollAnimationId = null // To store requestAnimationFrame ID
-
-// Initial printer state
-
+let scrollTarget: number = 0 // Desired scroll position
+let scrollAnimationId: number | null = null // To store requestAnimationFrame ID
 
 // Function to update the scroll target and ensure animation is running
-function updateScrollTargetAndAnimate() {
+function updateScrollTargetAndAnimate(): void {
 	scrollTarget = printerOutput.scrollHeight // Always scroll to the very bottom
 	if (scrollAnimationId === null) {
 		animateScroll()
@@ -18,7 +38,7 @@ function updateScrollTargetAndAnimate() {
 }
 
 // Custom continuous scroll animation logic
-function animateScroll() {
+function animateScroll(): void {
 	const currentScrollTop = printerOutput.scrollTop
 	const scrollDelta = scrollTarget - currentScrollTop
 	const scrollStep = 8 // Pixels to scroll per frame
@@ -40,7 +60,7 @@ function animateScroll() {
 	}
 }
 
-function limitContentHeight() {
+function limitContentHeight(): void {
 	const threshold = 10 * printerOutput.clientHeight
 	// Loop while scrollHeight exceeds the threshold and there's content to remove
 	while (printerOutput.scrollHeight > threshold && paper.firstChild) {
@@ -48,7 +68,7 @@ function limitContentHeight() {
 	}
 }
 
-function connectWebSocket() {
+function connectWebSocket(): void {
 	const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
 	socket = new WebSocket(`${protocol}//${location.host}/stream`)
 
@@ -61,18 +81,22 @@ function connectWebSocket() {
 		}
 	}
 
-	socket.onmessage = (event) => {
-		const data = JSON.parse(event.data)
+	socket.onmessage = (event: MessageEvent) => {
+		const data: ParsedEscPosBlock = JSON.parse(event.data)
 		console.log(data)
 
-		if (data.type === 'image') {
+		if (isEscPosImage(data)) {
 			const img = document.createElement('img')
 			img.src = data.base64
 			img.width = data.width
 			img.height = data.height
 			paper.appendChild(img)
-		} else if (data.type === 'text') {
-			const alignmentMap = ['left', 'center', 'right']
+		} else if (isEscPosText(data)) {
+			const alignmentMap: { [key: number]: string } = {
+				[Alignment.Left]: 'left',
+				[Alignment.Center]: 'center',
+				[Alignment.Right]: 'right',
+			}
 			data.content.split('\n').forEach((line) => {
 				const div = document.createElement('div')
 				div.style.textAlign = alignmentMap[data.alignment] || 'left'
@@ -91,7 +115,7 @@ function connectWebSocket() {
 				div.textContent = line
 				paper.appendChild(div)
 			})
-		} else if (data.type === 'command' && data.name === 'Cut Paper') {
+		} else if (isEscPosCommand(data) && data.name === 'Cut Paper') {
 			const cutLine = document.createElement('div')
 			cutLine.className = 'cut-line'
 			cutLine.textContent = '--- CUT ---'
@@ -111,9 +135,11 @@ function connectWebSocket() {
 		reconnectInterval = Math.min(reconnectInterval * 2, 30000) // Exponential backoff, max 30 seconds
 	}
 
-	socket.onerror = (error) => {
-		console.error('WebSocket error:', error)
-		socket.close() // Close the socket to trigger onclose and reconnect logic
+	socket.onerror = (error: Event) => {
+		console.error('WebSocket error:', (error as ErrorEvent).message)
+		if (socket) {
+			socket.close() // Close the socket to trigger onclose and reconnect logic
+		}
 	}
 }
 

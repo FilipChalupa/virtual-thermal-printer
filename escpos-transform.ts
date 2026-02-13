@@ -2,12 +2,7 @@ import iconv from 'iconv-lite'
 import { Buffer } from '@std/io/buffer'
 import { Image } from 'imagescript'
 import { encodeBase64 } from '@std/encoding/base64'
-
-export enum Alignment {
-	Left,
-	Center,
-	Right,
-}
+import { Alignment, EscPosText, ParsedEscPosBlock } from './shared/types.ts'
 
 export interface PrinterState {
 	alignment: Alignment
@@ -18,31 +13,6 @@ export interface PrinterState {
 	underline: number
 	reversePrinting: boolean
 }
-
-export interface EscPosText {
-	type: 'text'
-	content: string
-	alignment: Alignment
-	emphasized: boolean
-	underline: number
-	charSize: number
-	reversePrinting: boolean
-}
-
-export interface EscPosCommand {
-	type: 'command'
-	name: string
-	details?: { [key: string]: unknown }
-}
-
-export interface EscPosImage {
-	type: 'image'
-	width: number
-	height: number
-	base64: string // Changed from data: number[]
-}
-
-export type ParsedEscPosBlock = EscPosText | EscPosCommand | EscPosImage
 
 export interface ParsedCommandResult {
 	data: ParsedEscPosBlock | null

@@ -14,7 +14,7 @@ await esbuild.build({
 
 // Bundle JavaScript
 await esbuild.build({
-	entryPoints: ['public/script.js'],
+	entryPoints: ['public/script.ts'],
 	bundle: true,
 	outfile: 'dist/script.js',
 	minify: production,
