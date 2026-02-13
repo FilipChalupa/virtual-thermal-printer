@@ -14,6 +14,8 @@ export interface PrinterState {
 	charSize: number
 	leftMargin: number
 	printAreaWidth: number
+	emphasized: boolean
+	underline: number
 }
 
 export interface EscPosText {
@@ -148,8 +150,64 @@ export async function parseEscPos(
 						state.charSize = 0
 						state.leftMargin = 0
 						state.printAreaWidth = 0
+						state.emphasized = false
+						state.underline = 0
 						parsedBlock = { type: 'command', name: 'Initialize Printer' }
 						consumedBytes = 2
+						break
+					case 0x45: // E - Set emphasized mode
+						if (command.length >= 3) {
+							const emphasized = command[2] !== 0
+							state.emphasized = emphasized
+							parsedBlock = {
+								type: 'command',
+								name: 'Set Emphasized Mode',
+								details: { emphasized },
+							}
+							consumedBytes = 3
+						} else {
+							return { data: null, consumedBytes: 0 }
+						}
+						break
+					case 0x2d: // - - Set underline mode
+						if (command.length >= 3) {
+							const underline = command[2]
+							state.underline = underline
+							parsedBlock = {
+								type: 'command',
+								name: 'Set Underline Mode',
+								details: { underline },
+							}
+							consumedBytes = 3
+						} else {
+							return { data: null, consumedBytes: 0 }
+						}
+						break
+					case 0x4d: // M - Select character font
+						if (command.length >= 3) {
+							const font = command[2]
+							parsedBlock = {
+								type: 'command',
+								name: 'Select Character Font',
+								details: { font },
+							}
+							consumedBytes = 3
+						} else {
+							return { data: null, consumedBytes: 0 }
+						}
+						break
+					case 0x20: // SP - Set right-side character spacing
+						if (command.length >= 3) {
+							const spacing = command[2]
+							parsedBlock = {
+								type: 'command',
+								name: 'Set Right-Side Character Spacing',
+								details: { spacing },
+							}
+							consumedBytes = 3
+						} else {
+							return { data: null, consumedBytes: 0 }
+						}
 						break
 					case 0x61: // a - Set Alignment
 						if (command.length >= 3) {
@@ -336,6 +394,54 @@ export async function parseEscPos(
 							return { data: null, consumedBytes: 0 }
 						}
 						break
+					case 0x42: // B - Turn white/black reverse printing on/off
+						if (command.length >= 3) {
+							const reverse = command[2] !== 0
+							parsedBlock = {
+								type: 'command',
+								name: 'Set Reverse Printing',
+								details: { reverse },
+							}
+							consumedBytes = 3
+						} else {
+							return { data: null, consumedBytes: 0 }
+						}
+						break
+					case 0x68: // h - Set barcode height
+						if (command.length >= 3) {
+							const height = command[2]
+							parsedBlock = {
+								type: 'command',
+								name: 'Set Barcode Height',
+								details: { height },
+							}
+							consumedBytes = 3
+						} else {
+							return { data: null, consumedBytes: 0 }
+						}
+						break
+					case 0x6b: // k - Print barcode
+						if (command.length >= 3) {
+							const barcodeType = command[2]
+							let barcodeData = ''
+							let i = 3
+							while (i < command.length && command[i] !== 0x00) {
+								barcodeData += String.fromCharCode(command[i])
+								i++
+							}
+							parsedBlock = {
+								type: 'command',
+								name: 'Print Barcode',
+								details: {
+									barcodeType,
+									barcodeData,
+								},
+							}
+							consumedBytes = i + 1
+						} else {
+							return { data: null, consumedBytes: 0 }
+						}
+						break
 					default:
 						parsedBlock = {
 							type: 'command',
@@ -370,6 +476,8 @@ export class EscPosTransformer
 			charSize: 0,
 			leftMargin: 0,
 			printAreaWidth: 0,
+			emphasized: false,
+			underline: 0,
 		}
 	}
 

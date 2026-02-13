@@ -61,3 +61,23 @@ body {
 	font-size: 0.8em;
 	color: light-dark(#666, #999);
 }
+
+.reverse-printing {
+	background-color: black;
+	color: white;
+}
+
+.char-size-1 {
+	font-size: 1.5em;
+	font-weight: bold;
+}
+
+.char-size-2 {
+	font-size: 2em;
+	font-weight: bold;
+}
+
+.char-size-3 {
+	font-size: 2.5em;
+	font-weight: bold;
+}
