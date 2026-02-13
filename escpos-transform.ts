@@ -232,6 +232,36 @@ export async function parseEscPos(
 							return { data: null, consumedBytes: 0 }
 						}
 						break
+					case 0x24: // $ - Set absolute print position
+						if (command.length >= 4) {
+							const nL = command[2]
+							const nH = command[3]
+							const position = nL + nH * 256
+							parsedBlock = {
+								type: 'command',
+								name: 'Set Absolute Print Position',
+								details: { position },
+							}
+							consumedBytes = 4
+						} else {
+							return { data: null, consumedBytes: 0 }
+						}
+						break
+					case 0x70: // p - Generate pulse (Open/close cash drawer)
+						if (command.length >= 5) {
+							const m = command[2]
+							const t1 = command[3]
+							const t2 = command[4]
+							parsedBlock = {
+								type: 'command',
+								name: 'Generate Pulse',
+								details: { mode: m, t1: t1, t2: t2 },
+							}
+							consumedBytes = 5
+						} else {
+							return { data: null, consumedBytes: 0 }
+						}
+						break
 					case 0x61: // a - Set Alignment
 						if (command.length >= 3) {
 							const alignmentByte = command[2]
@@ -286,6 +316,35 @@ export async function parseEscPos(
 							details: { command: 'ESC i', cutType: 'Full' },
 						}
 						consumedBytes = 2
+						break
+					case 0x2a: // * - Bit image
+						if (command.length >= 5) { // ESC * m nL nH
+							const m = command[2]
+							const nL = command[3]
+							const nH = command[4]
+							const widthDots = nL + nH * 256
+
+							let bytesPerSlice = 1
+							if (m === 32 || m === 33) { // 24-dot
+								bytesPerSlice = 3
+							}
+
+							const expectedDataSize = widthDots * bytesPerSlice
+
+							if (command.length >= 5 + expectedDataSize) {
+								// Just consume the command for now, don't render.
+								parsedBlock = {
+									type: 'command',
+									name: 'Bit Image (ESC *)',
+									details: { m: m, width: widthDots },
+								}
+								consumedBytes = 5 + expectedDataSize
+							} else {
+								return { data: null, consumedBytes: 0 } // Not enough data
+							}
+						} else {
+							return { data: null, consumedBytes: 0 } // Not enough header
+						}
 						break
 					default:
 						parsedBlock = {
