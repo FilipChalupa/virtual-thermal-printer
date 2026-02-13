@@ -16,11 +16,17 @@ export interface PrinterState {
 	printAreaWidth: number
 	emphasized: boolean
 	underline: number
+	reversePrinting: boolean
 }
 
 export interface EscPosText {
 	type: 'text'
 	content: string
+	alignment: Alignment
+	emphasized: boolean
+	underline: number
+	charSize: number
+	reversePrinting: boolean
 }
 
 export interface EscPosCommand {
@@ -90,11 +96,19 @@ export async function parseEscPos(
 		return { data: null, consumedBytes: 0 }
 	}
 
-	const createTextBlock = (): EscPosText | null => {
+	const createTextBlock = (state: PrinterState): EscPosText | null => {
 		if (textBuffer.length > 0) {
 			const content = iconv.decode(new Uint8Array(textBuffer), 'CP852')
 			textBuffer = []
-			return { type: 'text', content: content }
+			return {
+				type: 'text',
+				content: content,
+				alignment: state.alignment,
+				emphasized: state.emphasized,
+				underline: state.underline,
+				charSize: state.charSize,
+				reversePrinting: state.reversePrinting,
+			}
 		}
 		return null
 	}
@@ -119,7 +133,7 @@ export async function parseEscPos(
 		}
 
 		if (textBuffer.length > 0) {
-			parsedBlock = createTextBlock()
+			parsedBlock = createTextBlock(state)
 			consumedBytes = currentTextIndex
 			return { data: parsedBlock, consumedBytes: consumedBytes }
 		}
@@ -128,7 +142,15 @@ export async function parseEscPos(
 
 	switch (firstByte) {
 		case 0x0a: // LF
-			parsedBlock = { type: 'text', content: '\n' }
+			parsedBlock = {
+				type: 'text',
+				content: '\n',
+				alignment: state.alignment,
+				emphasized: state.emphasized,
+				underline: state.underline,
+				charSize: state.charSize,
+				reversePrinting: state.reversePrinting,
+			}
 			consumedBytes = 1
 			break
 		case 0x10: // DLE (Data Link Escape) - often used for printer commands
@@ -152,6 +174,7 @@ export async function parseEscPos(
 						state.printAreaWidth = 0
 						state.emphasized = false
 						state.underline = 0
+						state.reversePrinting = false
 						parsedBlock = { type: 'command', name: 'Initialize Printer' }
 						consumedBytes = 2
 						break
@@ -397,6 +420,7 @@ export async function parseEscPos(
 					case 0x42: // B - Turn white/black reverse printing on/off
 						if (command.length >= 3) {
 							const reverse = command[2] !== 0
+							state.reversePrinting = reverse
 							parsedBlock = {
 								type: 'command',
 								name: 'Set Reverse Printing',
@@ -478,6 +502,7 @@ export class EscPosTransformer
 			printAreaWidth: 0,
 			emphasized: false,
 			underline: 0,
+			reversePrinting: false,
 		}
 	}
 

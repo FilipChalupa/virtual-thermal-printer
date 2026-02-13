@@ -7,13 +7,7 @@ let scrollTarget = 0 // Desired scroll position
 let scrollAnimationId = null // To store requestAnimationFrame ID
 
 // Initial printer state
-let printerState = {
-	alignment: 'left',
-	emphasized: false,
-	underline: 0,
-	charSize: 0,
-	reversePrinting: false,
-}
+
 
 // Function to update the scroll target and ensure animation is running
 function updateScrollTargetAndAnimate() {
@@ -71,65 +65,37 @@ function connectWebSocket() {
 		const data = JSON.parse(event.data)
 		console.log(data)
 
-		if (data.type === 'command') {
-			switch (data.name) {
-				case 'Initialize Printer':
-					printerState = {
-						alignment: 'left',
-						emphasized: false,
-						underline: 0,
-						charSize: 0,
-						reversePrinting: false,
-					}
-					break
-				case 'Set Alignment':
-					printerState.alignment = data.details.alignment.toLowerCase()
-					break
-				case 'Set Emphasized Mode':
-					printerState.emphasized = data.details.emphasized
-					break
-				case 'Set Underline Mode':
-					printerState.underline = data.details.underline
-					break
-				case 'Set Char Size':
-					printerState.charSize = data.details.size
-					break
-				case 'Set Reverse Printing':
-					printerState.reversePrinting = data.details.reverse
-					break
-				case 'Cut Paper': {
-					const cutLine = document.createElement('div')
-					cutLine.className = 'cut-line'
-					cutLine.textContent = '--- CUT ---'
-					paper.appendChild(cutLine)
-					break
-				}
-			}
-		} else if (data.type === 'image') {
+		if (data.type === 'image') {
 			const img = document.createElement('img')
 			img.src = data.base64
 			img.width = data.width
 			img.height = data.height
 			paper.appendChild(img)
 		} else if (data.type === 'text') {
+			const alignmentMap = ['left', 'center', 'right']
 			data.content.split('\n').forEach((line) => {
 				const div = document.createElement('div')
-				div.style.textAlign = printerState.alignment
-				if (printerState.emphasized) {
+				div.style.textAlign = alignmentMap[data.alignment] || 'left'
+				if (data.emphasized) {
 					div.style.fontWeight = 'bold'
 				}
-				if (printerState.underline) {
+				if (data.underline) {
 					div.style.textDecoration = 'underline'
 				}
-				if (printerState.charSize) {
-					div.classList.add(`char-size-${printerState.charSize}`)
+				if (data.charSize) {
+					div.classList.add(`char-size-${data.charSize}`)
 				}
-				if (printerState.reversePrinting) {
+				if (data.reversePrinting) {
 					div.classList.add('reverse-printing')
 				}
 				div.textContent = line
 				paper.appendChild(div)
 			})
+		} else if (data.type === 'command' && data.name === 'Cut Paper') {
+			const cutLine = document.createElement('div')
+			cutLine.className = 'cut-line'
+			cutLine.textContent = '--- CUT ---'
+			paper.appendChild(cutLine)
 		}
 		updateScrollTargetAndAnimate()
 		limitContentHeight()
