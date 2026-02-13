@@ -1,5 +1,6 @@
 import { assertEquals } from '@std/assert/mod.ts'
-import { Alignment, parseEscPos, PrinterState } from './escpos-transform.ts'
+import { parseEscPos, PrinterState } from './escpos-transform.ts'
+import { Alignment } from './shared/types.ts'
 import iconv from 'iconv-lite'
 
 Deno.test('parseEscPos - Initialize Printer', async () => {
@@ -9,6 +10,9 @@ Deno.test('parseEscPos - Initialize Printer', async () => {
 		charSize: 1,
 		leftMargin: 10,
 		printAreaWidth: 100,
+		emphasized: false,
+		underline: 0,
+		reversePrinting: false,
 	}
 	const result = await parseEscPos(command, state)
 	assertEquals(result.data, { type: 'command', name: 'Initialize Printer' })
@@ -22,6 +26,9 @@ Deno.test('parseEscPos - Cut Paper', async () => {
 		charSize: 0,
 		leftMargin: 0,
 		printAreaWidth: 0,
+		emphasized: false,
+		underline: 0,
+		reversePrinting: false,
 	}
 	const result = await parseEscPos(command, state)
 	assertEquals(result.data, {
@@ -38,6 +45,9 @@ Deno.test('parseEscPos - Set Alignment', async () => {
 		charSize: 0,
 		leftMargin: 0,
 		printAreaWidth: 0,
+		emphasized: false,
+		underline: 0,
+		reversePrinting: false,
 	}
 	const result = await parseEscPos(command, state)
 	assertEquals(result.data, {
@@ -55,9 +65,20 @@ Deno.test('parseEscPos - Print Text', async () => {
 		charSize: 0,
 		leftMargin: 0,
 		printAreaWidth: 0,
+		emphasized: false,
+		underline: 0,
+		reversePrinting: false,
 	}
 	const result = await parseEscPos(command, state)
-	assertEquals(result.data, { type: 'text', content: 'Hello, World!' })
+	assertEquals(result.data, {
+		type: 'text',
+		content: 'Hello, World!',
+		alignment: Alignment.Left,
+		emphasized: false,
+		underline: 0,
+		charSize: 0,
+		reversePrinting: false,
+	})
 })
 
 Deno.test('parseEscPos - CP852 Encoded Text', async () => {
@@ -67,9 +88,20 @@ Deno.test('parseEscPos - CP852 Encoded Text', async () => {
 		charSize: 0,
 		leftMargin: 0,
 		printAreaWidth: 0,
+		emphasized: false,
+		underline: 0,
+		reversePrinting: false,
 	}
 	const result = await parseEscPos(command, state)
-	assertEquals(result.data, { type: 'text', content: 'Dva obrázky' })
+	assertEquals(result.data, {
+		type: 'text',
+		content: 'Dva obrázky',
+		alignment: Alignment.Left,
+		emphasized: false,
+		underline: 0,
+		charSize: 0,
+		reversePrinting: false,
+	})
 })
 
 Deno.test('parseEscPos - Set Char Size', async () => {
@@ -79,6 +111,9 @@ Deno.test('parseEscPos - Set Char Size', async () => {
 		charSize: 0,
 		leftMargin: 0,
 		printAreaWidth: 0,
+		emphasized: false,
+		underline: 0,
+		reversePrinting: false,
 	}
 	const result = await parseEscPos(command, state)
 	assertEquals(result.data, {
@@ -96,6 +131,9 @@ Deno.test('parseEscPos - Set Left Margin', async () => {
 		charSize: 0,
 		leftMargin: 0,
 		printAreaWidth: 0,
+		emphasized: false,
+		underline: 0,
+		reversePrinting: false,
 	}
 	const result = await parseEscPos(command, state)
 	assertEquals(result.data, {
@@ -113,6 +151,9 @@ Deno.test('parseEscPos - Set Print Area Width', async () => {
 		charSize: 0,
 		leftMargin: 0,
 		printAreaWidth: 0,
+		emphasized: false,
+		underline: 0,
+		reversePrinting: false,
 	}
 	const result = await parseEscPos(command, state)
 	assertEquals(result.data, {
@@ -130,6 +171,9 @@ Deno.test('parseEscPos - Cut Paper (ESC i)', async () => {
 		charSize: 0,
 		leftMargin: 0,
 		printAreaWidth: 0,
+		emphasized: false,
+		underline: 0,
+		reversePrinting: false,
 	}
 	const result = await parseEscPos(command, state)
 	assertEquals(result.data, {
@@ -146,6 +190,9 @@ Deno.test('parseEscPos - Cut Paper (GS V without argument)', async () => {
 		charSize: 0,
 		leftMargin: 0,
 		printAreaWidth: 0,
+		emphasized: false,
+		underline: 0,
+		reversePrinting: false,
 	}
 	const result = await parseEscPos(command, state)
 	assertEquals(result.data, {
@@ -162,6 +209,9 @@ Deno.test('parseEscPos - Cut Paper (GS V 0x00)', async () => {
 		charSize: 0,
 		leftMargin: 0,
 		printAreaWidth: 0,
+		emphasized: false,
+		underline: 0,
+		reversePrinting: false,
 	}
 	const result = await parseEscPos(command, state)
 	assertEquals(result.data, {
@@ -178,6 +228,9 @@ Deno.test('parseEscPos - Cut Paper (GS V 0x01)', async () => {
 		charSize: 0,
 		leftMargin: 0,
 		printAreaWidth: 0,
+		emphasized: false,
+		underline: 0,
+		reversePrinting: false,
 	}
 	const result = await parseEscPos(command, state)
 	assertEquals(result.data, {

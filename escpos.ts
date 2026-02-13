@@ -1,7 +1,5 @@
 import {
-	Alignment as _Alignment,
 	EscPosTransformer,
-	ParsedEscPosBlock as _ParsedEscPosBlock,
 	PrinterState as _PrinterState,
 } from './escpos-transform.ts'
 
@@ -18,11 +16,19 @@ export async function processEscPosStream(
 		// Pipe the incoming connection stream through the ESC/POS transformer
 		const parsedBlocks = stream.pipeThrough(escPosTransformer)
 
-		for await (const block of parsedBlocks) {
-			const dataToSend = JSON.stringify(block)
-			for (const client of connectedClients) {
-				client.send(dataToSend)
+		const reader = parsedBlocks.getReader()
+		try {
+			while (true) {
+				const { done, value: block } = await reader.read()
+				if (done) break
+
+				const dataToSend = JSON.stringify(block)
+				for (const client of connectedClients) {
+					client.send(dataToSend)
+				}
 			}
+		} finally {
+			reader.releaseLock()
 		}
 	} catch (error) {
 		console.error('Error in handling connection or parsing stream:', error)

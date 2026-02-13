@@ -1,4 +1,10 @@
-import { ParsedEscPosBlock, EscPosText, EscPosCommand, EscPosImage, Alignment } from '../shared/types.ts'
+import {
+	Alignment,
+	EscPosCommand,
+	EscPosImage,
+	EscPosText,
+	ParsedEscPosBlock,
+} from '../shared/types.ts'
 
 // Type guards for narrowing ParsedEscPosBlock
 function isEscPosText(block: ParsedEscPosBlock): block is EscPosText {
@@ -13,12 +19,13 @@ function isEscPosImage(block: ParsedEscPosBlock): block is EscPosImage {
 	return block.type === 'image'
 }
 
-
-const printerOutput = document.getElementById('printer-output') as HTMLDivElement | null
+const printerOutput = document.getElementById(
+	'printer-output',
+) as HTMLDivElement
 if (!printerOutput) {
 	throw new Error('Printer output element not found')
 }
-const paper = printerOutput.querySelector('.paper') as HTMLDivElement | null
+const paper = printerOutput.querySelector('.paper') as HTMLDivElement
 if (!paper) {
 	throw new Error('Paper element not found')
 }

@@ -31,5 +31,8 @@
 		"version": "deno run --allow-read --allow-write --allow-run scripts/version.ts",
 		"build": "deno run --allow-read --allow-write --allow-run --allow-env=ESBUILD_BINARY_PATH,XDG_CACHE_HOME,HOME,NPM_CONFIG_REGISTRY scripts/build.ts",
 		"build:watch": "deno run --allow-read --allow-write --allow-run --allow-env=ESBUILD_BINARY_PATH,XDG_CACHE_HOME,HOME,NPM_CONFIG_REGISTRY --watch scripts/build.ts"
+	},
+	"compilerOptions": {
+		"lib": ["dom", "dom.iterable", "deno.ns"]
 	}
 }
