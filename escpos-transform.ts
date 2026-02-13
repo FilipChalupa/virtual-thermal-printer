@@ -117,14 +117,14 @@ export async function parseEscPos(
 
 	if (
 		firstByte !== 0x0a && firstByte !== 0x1b && firstByte !== 0x1d &&
-		firstByte !== 0x10 && firstByte !== 0x12
+		firstByte !== 0x1c
 	) {
 		let currentTextIndex = 0
 		while (currentTextIndex < command.length) {
 			const currentByte = command[currentTextIndex]
 			if (
 				currentByte === 0x0a || currentByte === 0x1b || currentByte === 0x1d ||
-				currentByte === 0x10 || currentByte === 0x12
+				currentByte === 0x1c
 			) {
 				break
 			}
@@ -151,16 +151,6 @@ export async function parseEscPos(
 				charSize: state.charSize,
 				reversePrinting: state.reversePrinting,
 			}
-			consumedBytes = 1
-			break
-		case 0x10: // DLE (Data Link Escape) - often used for printer commands
-			// For now, treat as a generic command to consume it and prevent it from appearing as text
-			parsedBlock = { type: 'command', name: 'Unknown DLE Command' }
-			consumedBytes = 1
-			break
-		case 0x12: // DC2 (Device Control 2) - often used for printer commands (e.g., set character size)
-			// For now, treat as a generic command to consume it and prevent it from appearing as text
-			parsedBlock = { type: 'command', name: 'Unknown DC2 Command' }
 			consumedBytes = 1
 			break
 		case 0x1b: // ESC
@@ -324,6 +314,19 @@ export async function parseEscPos(
 								type: 'command',
 								name: 'Print and Feed Paper',
 								details: { feed: n },
+							}
+							consumedBytes = 3
+						} else {
+							return { data: null, consumedBytes: 0 }
+						}
+						break
+					case 0x74: // t - Select character code table
+						if (command.length >= 3) {
+							const n = command[2]
+							parsedBlock = {
+								type: 'command',
+								name: 'Select Character Code Table',
+								details: { table: n },
 							}
 							consumedBytes = 3
 						} else {
@@ -545,6 +548,30 @@ export async function parseEscPos(
 							details: { byte: nextByte },
 						}
 						consumedBytes = 2
+						break
+				}
+			} else {
+				return { data: null, consumedBytes: 0 }
+			}
+			break
+		case 0x1c: // FS
+			if (command.length >= 2) {
+				const nextByte = command[1]
+				switch (nextByte) {
+					case 0x2e: // . - Cancel Chinese character mode
+						parsedBlock = {
+							type: 'command',
+							name: 'Cancel Chinese Character Mode',
+						}
+						consumedBytes = 2
+						break
+					default:
+						parsedBlock = {
+							type: 'command',
+							name: 'Unknown FS Command',
+							details: { byte: nextByte },
+						}
+						consumedBytes = 2 // Assume 2 bytes for now
 						break
 				}
 			} else {
