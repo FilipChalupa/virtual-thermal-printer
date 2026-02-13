@@ -317,6 +317,19 @@ export async function parseEscPos(
 						}
 						consumedBytes = 2
 						break
+					case 0x4a: // J - Print and feed paper
+						if (command.length >= 3) {
+							const n = command[2]
+							parsedBlock = {
+								type: 'command',
+								name: 'Print and Feed Paper',
+								details: { feed: n },
+							}
+							consumedBytes = 3
+						} else {
+							return { data: null, consumedBytes: 0 }
+						}
+						break
 					case 0x2a: // * - Bit image
 						if (command.length >= 5) { // ESC * m nL nH
 							const m = command[2]
