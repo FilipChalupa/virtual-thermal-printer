@@ -1,0 +1,31 @@
+import * as esbuild from 'esbuild'
+import { copy } from '@std/fs'
+
+const production = Deno.args.includes('--production')
+
+// Bundle CSS
+await esbuild.build({
+	entryPoints: ['public/style.css'],
+	bundle: true,
+	outfile: 'dist/style.css',
+	minify: production,
+	sourcemap: !production,
+})
+
+// Bundle JavaScript
+await esbuild.build({
+	entryPoints: ['public/script.js'],
+	bundle: true,
+	outfile: 'dist/script.js',
+	minify: production,
+	sourcemap: !production,
+})
+
+// Copy HTML
+await copy('public/index.html', 'dist/index.html', { overwrite: true })
+
+console.log('Frontend build complete.')
+
+if (!production) {
+	Deno.exit(0)
+}

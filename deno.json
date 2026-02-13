@@ -15,17 +15,21 @@
 		"@std/io/buffer": "https://deno.land/std@0.224.0/io/buffer.ts",
 		"imagescript": "https://deno.land/x/imagescript@v1.2.14/mod.ts",
 		"@std/encoding/base64": "jsr:@std/encoding@^0.224.0/base64",
-		"@std/path/join": "jsr:@std/path@^1.0.0/join"
+		"@std/path/join": "jsr:@std/path@^1.0.0/join",
+		"esbuild": "https://deno.land/x/esbuild@v0.20.2/mod.js",
+		"@std/fs": "https://deno.land/std@0.224.0/fs/mod.ts"
 	},
 	"tasks": {
 		"start": "deno run --allow-net --allow-read --allow-env main.ts",
-		"dev": "deno run --allow-net --allow-read --allow-env --watch main.ts --http 8000 --hostname 0.0.0.0",
+		"dev": "deno task build:watch & deno run --allow-net --allow-read --allow-env --watch main.ts --http 8000 --hostname 0.0.0.0",
 		"escpos_test": "deno test --allow-net escpos.test.ts",
 		"test": "deno test --allow-net escpos.test.ts",
 		"check": "deno check main.ts escpos.ts escpos.test.ts escpos-transform.ts",
 		"fmt": "deno fmt",
 		"lint": "deno lint",
-		"compile": "deno compile --allow-net --allow-read --allow-env --include public --include deno.json -o virtual-thermal-printer main.ts",
-		"version": "deno run --allow-read --allow-write --allow-run scripts/version.ts"
+		"compile": "deno task build && deno compile --allow-net --allow-read --allow-env --include public --include deno.json -o virtual-thermal-printer main.ts",
+		"version": "deno run --allow-read --allow-write --allow-run scripts/version.ts",
+		"build": "deno run --allow-read --allow-write --allow-run --allow-env=ESBUILD_BINARY_PATH,XDG_CACHE_HOME,HOME,NPM_CONFIG_REGISTRY scripts/build.ts",
+		"build:watch": "deno run --allow-read --allow-write --allow-run --allow-env=ESBUILD_BINARY_PATH,XDG_CACHE_HOME,HOME,NPM_CONFIG_REGISTRY --watch scripts/build.ts"
 	}
 }
