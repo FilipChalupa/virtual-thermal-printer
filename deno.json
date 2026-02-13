@@ -21,7 +21,7 @@
 	},
 	"tasks": {
 		"start": "deno run --allow-net --allow-read --allow-env main.ts",
-		"dev": "deno task build:watch & deno run --allow-net --allow-read --allow-env --watch main.ts --http 8000 --hostname 0.0.0.0",
+		"dev": "deno task build:watch & deno run --allow-net --allow-read --allow-env --watch=main.ts,escpos.ts,escpos-transform.ts,shared/types.ts main.ts --http 8000 --hostname 0.0.0.0",
 		"escpos_test": "deno test --allow-net escpos.test.ts",
 		"test": "deno test --allow-net escpos.test.ts",
 		"check": "deno check main.ts escpos.ts escpos.test.ts escpos-transform.ts",
@@ -30,7 +30,7 @@
 		"compile": "deno task build && deno compile --allow-net --allow-read --allow-env --include dist --include deno.json -o virtual-thermal-printer main.ts",
 		"version": "deno run --allow-read --allow-write --allow-run scripts/version.ts",
 		"build": "deno run --allow-read --allow-write --allow-run --allow-env=ESBUILD_BINARY_PATH,XDG_CACHE_HOME,HOME,NPM_CONFIG_REGISTRY scripts/build.ts",
-		"build:watch": "deno run --allow-read --allow-write --allow-run --allow-env=ESBUILD_BINARY_PATH,XDG_CACHE_HOME,HOME,NPM_CONFIG_REGISTRY --watch scripts/build.ts"
+		"build:watch": "deno run --allow-read --allow-write --allow-run --allow-env=ESBUILD_BINARY_PATH,XDG_CACHE_HOME,HOME,NPM_CONFIG_REGISTRY --watch=public/ scripts/build.ts"
 	},
 	"compilerOptions": {
 		"lib": ["dom", "dom.iterable", "deno.ns"]
