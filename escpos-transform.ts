@@ -168,6 +168,19 @@ export async function parseEscPos(
 						parsedBlock = { type: 'command', name: 'Initialize Printer' }
 						consumedBytes = 2
 						break
+					case 0x42: // B - Set Print Density
+						if (command.length >= 3) {
+							const density = command[2]
+							parsedBlock = {
+								type: 'command',
+								name: 'Set Print Density',
+								details: { density },
+							}
+							consumedBytes = 3
+						} else {
+							return { data: null, consumedBytes: 0 }
+						}
+						break
 					case 0x45: // E - Set emphasized mode
 						if (command.length >= 3) {
 							const emphasized = command[2] !== 0
