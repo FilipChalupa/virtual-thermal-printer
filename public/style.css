@@ -34,6 +34,7 @@ body {
 	background-color: white;
 	color: black;
 	padding: 10px;
+	font-family: monospace;
 }
 
 .paper:empty {
