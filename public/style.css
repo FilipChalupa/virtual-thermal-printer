@@ -30,10 +30,17 @@ h1 {
 }
 
 #printer-output::before {
-	content: '';
+	content: '🖨️';
 	flex-basis: 100%;
 	flex-shrink: 0;
 	background-color: #c8c8c8;
+	display: grid;
+	align-items: center;
+	justify-content: center;
+	font-size: 140px;
+	filter: grayscale(1);
+	position: sticky;
+	top: 0;
 }
 
 .paper {
@@ -42,6 +49,7 @@ h1 {
 	padding: 10px;
 	font-family: monospace;
 	box-sizing: content-box;
+	position: relative;
 }
 
 .paper:empty {
