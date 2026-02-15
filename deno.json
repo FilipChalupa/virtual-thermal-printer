@@ -3,7 +3,11 @@
 	"fmt": {
 		"useTabs": true,
 		"semiColons": false,
-		"singleQuote": true
+		"singleQuote": true,
+		"exclude": ["fixtures"]
+	},
+	"lint": {
+		"exclude": ["fixtures"]
 	},
 	"imports": {
 		"hono": "jsr:@hono/hono@^4.6.5",
