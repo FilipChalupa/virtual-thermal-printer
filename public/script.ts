@@ -78,9 +78,18 @@ let isAutoScrollEnabled = true
 
 const beepSound = new Audio('/beep.mp3')
 
-printerOutput.addEventListener('wheel', () => isAutoScrollEnabled = false)
-printerOutput.addEventListener('mousedown', () => isAutoScrollEnabled = false)
-printerOutput.addEventListener('touchstart', () => isAutoScrollEnabled = false)
+const disableAutoScrollIfScrollable = () => {
+	const isScrollable = printerOutput.scrollHeight > printerOutput.clientHeight
+	if (isScrollable) {
+		isAutoScrollEnabled = false
+	}
+}
+printerOutput.addEventListener('wheel', disableAutoScrollIfScrollable)
+printerOutput.addEventListener('mousedown', disableAutoScrollIfScrollable)
+printerOutput.addEventListener(
+	'touchstart',
+	disableAutoScrollIfScrollable,
+)
 
 printerOutput.addEventListener('scrollend', () => {
 	const isAtBottom = printerOutput.scrollHeight - printerOutput.scrollTop <=
