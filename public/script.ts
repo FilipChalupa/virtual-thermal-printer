@@ -20,26 +20,41 @@ function isEscPosImage(block: ParsedEscPosBlock): block is EscPosImage {
 	return block.type === 'image'
 }
 
+let isAutoScrolling = false
+
 function linearScrollToEnd(
 	element: HTMLElement,
 ): void {
-	const pixelsPerSecond = 100
+	if (isAutoScrolling) {
+		return
+	}
+	isAutoScrolling = true
+	const pixelsPerSecond = 700
 	let lastTimestamp: number
 	const step = () => {
 		if (
 			!isAutoScrollEnabled /* @TODO: or check if already scrolled to bottom */
 		) {
+			isAutoScrolling = false
 			return
 		}
+
 		const currentTimestamp = Date.now()
-		const top = lastTimestamp
+		console.log(
+			'by',
+			lastTimestamp
+				? ((currentTimestamp - lastTimestamp) / 1000) * pixelsPerSecond
+				: pixelsPerSecond,
+		)
+		const topBefore = element.scrollTop
+		element.scrollTop += lastTimestamp
 			? ((currentTimestamp - lastTimestamp) / 1000) * pixelsPerSecond
-			: pixelsPerSecond
+			: (pixelsPerSecond / 60)
+		if (element.scrollTop === topBefore) {
+			isAutoScrolling = false
+			return
+		}
 		lastTimestamp = currentTimestamp
-		element.scrollBy({
-			top,
-			behavior: 'instant',
-		})
 		requestAnimationFrame(step)
 	}
 	step()
@@ -67,7 +82,7 @@ printerOutput.addEventListener('touchstart', () => isAutoScrollEnabled = false)
 
 printerOutput.addEventListener('scrollend', () => {
 	const isAtBottom = printerOutput.scrollHeight - printerOutput.scrollTop <=
-		printerOutput.clientHeight + 1
+		printerOutput.clientHeight + 50
 	if (isAtBottom) {
 		isAutoScrollEnabled = true
 	}
