@@ -113,7 +113,7 @@ app.get(
 app.use(
 	'/*',
 	serveStatic({
-		root: './dist',
+		root: `${import.meta.dirname}/dist`,
 	}),
 )
 
