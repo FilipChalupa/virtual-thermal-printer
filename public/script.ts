@@ -40,12 +40,6 @@ function linearScrollToEnd(
 		}
 
 		const currentTimestamp = Date.now()
-		console.log(
-			'by',
-			lastTimestamp
-				? ((currentTimestamp - lastTimestamp) / 1000) * pixelsPerSecond
-				: pixelsPerSecond,
-		)
 		const topBefore = element.scrollTop
 		element.scrollTop += lastTimestamp
 			? ((currentTimestamp - lastTimestamp) / 1000) * pixelsPerSecond
