@@ -36,7 +36,9 @@ Deno.test('web render integration test', async (testContext) => {
 		assert(response.ok, `HTTP error! status: ${response.status}`)
 		const responseText = await response.text()
 		assert(
-			responseText.includes('<response xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print" success="true"'),
+			responseText.includes(
+				'<response xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print" success="true"',
+			),
 			'Expected success response',
 		)
 	})
@@ -53,7 +55,9 @@ Deno.test('web render integration test', async (testContext) => {
 		assert(response.ok, `HTTP error! status: ${response.status}`)
 		const responseText = await response.text()
 		assert(
-			responseText.includes('<response xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print" success="true"'),
+			responseText.includes(
+				'<response xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print" success="true"',
+			),
 			'Expected success response',
 		)
 	})
