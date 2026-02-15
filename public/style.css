@@ -26,6 +26,7 @@ h1 {
 	overflow-y: scroll;
 	border: 1px solid light-dark(#ccc, #333); /* Just for visualization */
 	scrollbar-gutter: stable both-sides;
+	box-sizing: content-box;
 }
 
 #printer-output::before {
@@ -39,7 +40,6 @@ h1 {
 	color: black;
 	padding: 10px;
 	font-family: monospace;
-	box-sizing: content-box;
 }
 
 .paper:empty {

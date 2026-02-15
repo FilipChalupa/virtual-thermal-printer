@@ -30,7 +30,7 @@ const paper = printerOutput.querySelector('.paper') as HTMLDivElement
 if (!paper) {
 	throw new Error('Paper element not found')
 }
-paper.style.width = `${printerWidth}px`
+printerOutput.style.width = `${printerWidth}px`
 
 let socket: WebSocket | undefined
 let reconnectInterval = 1000 // Initial reconnect attempt after 1 second
