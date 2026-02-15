@@ -12,7 +12,8 @@ export interface EscPosText {
 	alignment: Alignment
 	emphasized: boolean
 	underline: number
-	charSize: number
+	charWidth: number
+	charHeight: number
 	reversePrinting: boolean
 }
 

@@ -7,7 +7,8 @@ Deno.test('parseEscPos - Initialize Printer', async () => {
 	const command = new Uint8Array([0x1b, 0x40])
 	const state: PrinterState = {
 		alignment: Alignment.Center,
-		charSize: 1,
+		charWidth: 1,
+		charHeight: 1,
 		leftMargin: 10,
 		printAreaWidth: 100,
 		emphasized: false,
@@ -23,7 +24,8 @@ Deno.test('parseEscPos - Cut Paper', async () => {
 	const command = new Uint8Array([0x1d, 0x56])
 	const state: PrinterState = {
 		alignment: Alignment.Left,
-		charSize: 0,
+		charWidth: 1,
+		charHeight: 1,
 		leftMargin: 0,
 		printAreaWidth: 0,
 		emphasized: false,
@@ -42,7 +44,8 @@ Deno.test('parseEscPos - Set Alignment', async () => {
 	const command = new Uint8Array([0x1b, 0x61, 1])
 	const state: PrinterState = {
 		alignment: Alignment.Left,
-		charSize: 0,
+		charWidth: 1,
+		charHeight: 1,
 		leftMargin: 0,
 		printAreaWidth: 0,
 		emphasized: false,
@@ -62,7 +65,8 @@ Deno.test('parseEscPos - Print Text', async () => {
 	const command = iconv.encode('Hello, World!', 'CP852')
 	const state: PrinterState = {
 		alignment: Alignment.Left,
-		charSize: 0,
+		charWidth: 1,
+		charHeight: 1,
 		leftMargin: 0,
 		printAreaWidth: 0,
 		emphasized: false,
@@ -76,7 +80,8 @@ Deno.test('parseEscPos - Print Text', async () => {
 		alignment: Alignment.Left,
 		emphasized: false,
 		underline: 0,
-		charSize: 0,
+		charWidth: 1,
+		charHeight: 1,
 		reversePrinting: false,
 	})
 })
@@ -85,7 +90,8 @@ Deno.test('parseEscPos - CP852 Encoded Text', async () => {
 	const command = iconv.encode('Dva obrázky', 'CP852')
 	const state: PrinterState = {
 		alignment: Alignment.Left,
-		charSize: 0,
+		charWidth: 1,
+		charHeight: 1,
 		leftMargin: 0,
 		printAreaWidth: 0,
 		emphasized: false,
@@ -99,7 +105,8 @@ Deno.test('parseEscPos - CP852 Encoded Text', async () => {
 		alignment: Alignment.Left,
 		emphasized: false,
 		underline: 0,
-		charSize: 0,
+		charWidth: 1,
+		charHeight: 1,
 		reversePrinting: false,
 	})
 })
@@ -108,7 +115,8 @@ Deno.test('parseEscPos - Set Char Size', async () => {
 	const command = new Uint8Array([0x1d, 0x21, 0x11])
 	const state: PrinterState = {
 		alignment: Alignment.Left,
-		charSize: 0,
+		charWidth: 1,
+		charHeight: 1,
 		leftMargin: 0,
 		printAreaWidth: 0,
 		emphasized: false,
@@ -119,16 +127,18 @@ Deno.test('parseEscPos - Set Char Size', async () => {
 	assertEquals(result.data, {
 		type: 'command',
 		name: 'Set Char Size',
-		details: { size: 17 },
+		details: { width: 2, height: 2 },
 	})
-	assertEquals(state.charSize, 17)
+	assertEquals(state.charWidth, 2)
+	assertEquals(state.charHeight, 2)
 })
 
 Deno.test('parseEscPos - Set Left Margin', async () => {
 	const command = new Uint8Array([0x1d, 0x4c, 0x0a, 0x00])
 	const state: PrinterState = {
 		alignment: Alignment.Left,
-		charSize: 0,
+		charWidth: 1,
+		charHeight: 1,
 		leftMargin: 0,
 		printAreaWidth: 0,
 		emphasized: false,
@@ -148,7 +158,8 @@ Deno.test('parseEscPos - Set Print Area Width', async () => {
 	const command = new Uint8Array([0x1d, 0x57, 0x80, 0x01])
 	const state: PrinterState = {
 		alignment: Alignment.Left,
-		charSize: 0,
+		charWidth: 1,
+		charHeight: 1,
 		leftMargin: 0,
 		printAreaWidth: 0,
 		emphasized: false,
@@ -168,7 +179,8 @@ Deno.test('parseEscPos - Cut Paper (ESC i)', async () => {
 	const command = new Uint8Array([0x1b, 0x69])
 	const state: PrinterState = {
 		alignment: Alignment.Left,
-		charSize: 0,
+		charWidth: 1,
+		charHeight: 1,
 		leftMargin: 0,
 		printAreaWidth: 0,
 		emphasized: false,
@@ -187,7 +199,8 @@ Deno.test('parseEscPos - Cut Paper (GS V without argument)', async () => {
 	const command = new Uint8Array([0x1d, 0x56])
 	const state: PrinterState = {
 		alignment: Alignment.Left,
-		charSize: 0,
+		charWidth: 1,
+		charHeight: 1,
 		leftMargin: 0,
 		printAreaWidth: 0,
 		emphasized: false,
@@ -206,7 +219,8 @@ Deno.test('parseEscPos - Cut Paper (GS V 0x00)', async () => {
 	const command = new Uint8Array([0x1d, 0x56, 0x00])
 	const state: PrinterState = {
 		alignment: Alignment.Left,
-		charSize: 0,
+		charWidth: 1,
+		charHeight: 1,
 		leftMargin: 0,
 		printAreaWidth: 0,
 		emphasized: false,
@@ -225,7 +239,8 @@ Deno.test('parseEscPos - Cut Paper (GS V 0x01)', async () => {
 	const command = new Uint8Array([0x1d, 0x56, 0x01])
 	const state: PrinterState = {
 		alignment: Alignment.Left,
-		charSize: 0,
+		charWidth: 1,
+		charHeight: 1,
 		leftMargin: 0,
 		printAreaWidth: 0,
 		emphasized: false,

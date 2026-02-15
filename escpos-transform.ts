@@ -6,7 +6,8 @@ import { Alignment, EscPosText, ParsedEscPosBlock } from './shared/types.ts'
 
 export interface PrinterState {
 	alignment: Alignment
-	charSize: number
+	charWidth: number
+	charHeight: number
 	leftMargin: number
 	printAreaWidth: number
 	emphasized: boolean
@@ -76,7 +77,8 @@ export async function parseEscPos(
 				alignment: state.alignment,
 				emphasized: state.emphasized,
 				underline: state.underline,
-				charSize: state.charSize,
+				charWidth: state.charWidth,
+				charHeight: state.charHeight,
 				reversePrinting: state.reversePrinting,
 			}
 		}
@@ -118,7 +120,8 @@ export async function parseEscPos(
 				alignment: state.alignment,
 				emphasized: state.emphasized,
 				underline: state.underline,
-				charSize: state.charSize,
+				charWidth: state.charWidth,
+				charHeight: state.charHeight,
 				reversePrinting: state.reversePrinting,
 			}
 			consumedBytes = 1
@@ -129,7 +132,8 @@ export async function parseEscPos(
 				switch (nextByte) {
 					case 0x40: // @ - Initialize Printer
 						state.alignment = Alignment.Left
-						state.charSize = 0
+						state.charWidth = 1
+						state.charHeight = 1
 						state.leftMargin = 0
 						state.printAreaWidth = 0
 						state.emphasized = false
@@ -364,11 +368,16 @@ export async function parseEscPos(
 				switch (nextByte) {
 					case 0x21: // ! - Set Character Size
 						if (command.length >= 3) {
-							state.charSize = command[2]
+							const size = command[2]
+							state.charHeight = (size & 0x07) + 1
+							state.charWidth = ((size >> 4) & 0x07) + 1
 							parsedBlock = {
 								type: 'command',
 								name: 'Set Char Size',
-								details: { size: state.charSize },
+								details: {
+									width: state.charWidth,
+									height: state.charHeight,
+								},
 							}
 							consumedBytes = 3
 						} else {
@@ -579,7 +588,8 @@ export class EscPosTransformer
 		this.#accumulatedBuffer = new Buffer()
 		this.#printerState = {
 			alignment: Alignment.Left,
-			charSize: 0,
+			charWidth: 1,
+			charHeight: 1,
 			leftMargin: 0,
 			printAreaWidth: 0,
 			emphasized: false,

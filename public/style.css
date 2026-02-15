@@ -74,18 +74,3 @@ h1 {
 	background-color: black;
 	color: white;
 }
-
-.char-size-1 {
-	font-size: 24px;
-	font-weight: bold;
-}
-
-.char-size-2 {
-	font-size: 32px;
-	font-weight: bold;
-}
-
-.char-size-3 {
-	font-size: 40px;
-	font-weight: bold;
-}

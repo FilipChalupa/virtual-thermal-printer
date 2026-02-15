@@ -115,8 +115,9 @@ function connectWebSocket(): void {
 				if (data.underline) {
 					div.style.textDecoration = 'underline'
 				}
-				if (data.charSize) {
-					div.classList.add(`char-size-${data.charSize}`)
+				if (data.charWidth > 1 || data.charHeight > 1) {
+					div.style.transform = `scale(${data.charWidth}, ${data.charHeight})`
+					div.style.transformOrigin = 'left'
 				}
 				if (data.reversePrinting) {
 					div.classList.add('reverse-printing')
