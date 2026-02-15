@@ -1,13 +1,17 @@
 {
-	"version": "0.0.13",
+	"version": "0.0.14",
 	"fmt": {
 		"useTabs": true,
 		"semiColons": false,
 		"singleQuote": true,
-		"exclude": ["fixtures"]
+		"exclude": [
+			"fixtures"
+		]
 	},
 	"lint": {
-		"exclude": ["fixtures"]
+		"exclude": [
+			"fixtures"
+		]
 	},
 	"imports": {
 		"hono": "jsr:@hono/hono@^4.6.5",
@@ -37,6 +41,10 @@
 		"build:watch": "deno run --allow-net --allow-read --allow-write --allow-run --allow-env=ESBUILD_BINARY_PATH,XDG_CACHE_HOME,HOME,NPM_CONFIG_REGISTRY --watch=public/ scripts/build.ts"
 	},
 	"compilerOptions": {
-		"lib": ["dom", "dom.iterable", "deno.ns"]
+		"lib": [
+			"dom",
+			"dom.iterable",
+			"deno.ns"
+		]
 	}
 }
