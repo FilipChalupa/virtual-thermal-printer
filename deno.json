@@ -29,7 +29,7 @@
 	},
 	"tasks": {
 		"start": "deno run --allow-net --allow-read --allow-env main.ts",
-		"dev": "deno task build:watch & deno run --allow-net --allow-read --allow-env --watch=main.ts,escpos.ts,escpos-transform.ts,shared/types.ts main.ts --http 8000 --hostname 0.0.0.0",
+		"dev": "deno task build:watch & deno run --allow-net --allow-read --allow-env --watch=main.ts,escpos.ts,escpos-transform.ts,shared/types.ts main.ts --http 8000",
 		"escpos_test": "deno test --allow-net escpos.test.ts",
 		"test": "deno test --allow-net escpos.test.ts",
 		"check": "deno check main.ts escpos.ts escpos.test.ts escpos-transform.ts",

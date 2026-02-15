@@ -26,8 +26,8 @@ const appVersion = (() => {
 console.log(`App version: ${appVersion}`)
 
 const flags = parseArgs(Deno.args, {
-	string: ['http', 'socket', 'hostname'],
-	default: { 'http': '80', 'socket': '9100', 'hostname': '127.0.0.1' },
+	string: ['http', 'socket'],
+	default: { 'http': '80', 'socket': '9100' },
 })
 
 function validatePort(portValue: string | number, portName: string): number {
@@ -40,7 +40,6 @@ function validatePort(portValue: string | number, portName: string): number {
 
 const httpPort = validatePort(flags['http'], 'HTTP')
 const socketPort = validatePort(flags['socket'], 'Socket')
-const hostname = flags['hostname']
 
 const app = new Hono()
 
@@ -121,7 +120,6 @@ app.use(
 Deno.serve(
 	{
 		port: httpPort,
-		hostname,
 		onListen(localAddress) {
 			console.log(
 				`Listening to HTTP on http://${localAddress.hostname}:${localAddress.port}.`,
@@ -134,9 +132,8 @@ Deno.serve(
 if (!Deno.env.get('DENO_DEPLOYMENT_ID')) {
 	const escposListener = Deno.listen({
 		port: socketPort,
-		hostname,
 	})
-	console.log(`Listening to Socket on ${hostname}:${socketPort}.`)
+	console.log(`Listening to Socket on port ${socketPort}.`)
 
 	for await (const conn of escposListener) {
 		;(async () => {
