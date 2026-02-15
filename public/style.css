@@ -52,3 +52,8 @@ h1 {
 	height: auto;
 	display: block;
 }
+
+.cut-line {
+	border-top: 1px dashed black;
+	margin: 10px 0;
+}
