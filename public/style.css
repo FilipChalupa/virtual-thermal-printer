@@ -39,6 +39,7 @@ h1 {
 	color: black;
 	padding: 10px;
 	font-family: monospace;
+	box-sizing: content-box;
 }
 
 .paper:empty {

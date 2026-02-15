@@ -5,6 +5,7 @@ import {
 	EscPosText,
 	ParsedEscPosBlock,
 } from '../shared/types.ts'
+import { printerWidth } from '../shared/settings.ts'
 
 // Type guards for narrowing ParsedEscPosBlock
 function isEscPosText(block: ParsedEscPosBlock): block is EscPosText {
@@ -29,6 +30,7 @@ const paper = printerOutput.querySelector('.paper') as HTMLDivElement
 if (!paper) {
 	throw new Error('Paper element not found')
 }
+paper.style.width = `${printerWidth}px`
 
 let socket: WebSocket | undefined
 let reconnectInterval = 1000 // Initial reconnect attempt after 1 second
