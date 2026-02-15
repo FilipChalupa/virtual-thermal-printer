@@ -34,40 +34,20 @@ paper.style.width = `${printerWidth}px`
 
 let socket: WebSocket | undefined
 let reconnectInterval = 1000 // Initial reconnect attempt after 1 second
+let isAutoScrollEnabled = true
 
-let scrollTarget: number = 0 // Desired scroll position
-let scrollAnimationId: number | null = null // To store requestAnimationFrame ID
+printerOutput.addEventListener('wheel', () => isAutoScrollEnabled = false)
+printerOutput.addEventListener('mousedown', () => isAutoScrollEnabled = false)
+printerOutput.addEventListener('touchstart', () => isAutoScrollEnabled = false)
 
-// Function to update the scroll target and ensure animation is running
-function updateScrollTargetAndAnimate(): void {
-	scrollTarget = printerOutput.scrollHeight // Always scroll to the very bottom
-	if (scrollAnimationId === null) {
-		animateScroll()
+printerOutput.addEventListener('scrollend', () => {
+	const isAtBottom =
+		printerOutput.scrollHeight - printerOutput.scrollTop <=
+		printerOutput.clientHeight + 1
+	if (isAtBottom) {
+		isAutoScrollEnabled = true
 	}
-}
-
-// Custom continuous scroll animation logic
-function animateScroll(): void {
-	const currentScrollTop = printerOutput.scrollTop
-	const scrollDelta = scrollTarget - currentScrollTop
-	const scrollStep = 8 // Pixels to scroll per frame
-
-	if (scrollDelta > 0) { // Only scroll down if not at target
-		let newScrollTop = currentScrollTop + scrollStep
-		// Ensure we don't overshoot the target (or the actual scrollHeight)
-		newScrollTop = Math.min(newScrollTop, scrollTarget)
-		printerOutput.scrollTop = newScrollTop
-
-		// Continue animation if still not at target
-		if (printerOutput.scrollTop < scrollTarget) {
-			scrollAnimationId = requestAnimationFrame(animateScroll)
-		} else {
-			scrollAnimationId = null // Reached target
-		}
-	} else {
-		scrollAnimationId = null // Already at or past target
-	}
-}
+})
 
 function connectWebSocket(): void {
 	const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
@@ -149,7 +129,12 @@ function connectWebSocket(): void {
 			cutLine.className = 'cut-line'
 			paper.appendChild(cutLine)
 		}
-		updateScrollTargetAndAnimate()
+		if (isAutoScrollEnabled) {
+			printerOutput.scrollTo({
+				top: printerOutput.scrollHeight,
+				behavior: 'smooth',
+			})
+		}
 	}
 
 	socket.onclose = () => {
