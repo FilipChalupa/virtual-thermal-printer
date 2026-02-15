@@ -1,5 +1,5 @@
 body {
-	max-width: 600px;
+	max-width: min-content;
 	margin: 0 auto;
 	padding: 20px;
 }
@@ -26,6 +26,7 @@ h1 {
 	overflow-y: scroll;
 	border: 1px solid light-dark(#ccc, #333); /* Just for visualization */
 	scrollbar-gutter: stable both-sides;
+	background-color: #c8c8c8;
 }
 
 #printer-output::before {
@@ -43,7 +44,7 @@ h1 {
 }
 
 .paper:empty {
-	display: none;
+	padding-block: 0;
 }
 
 #printer-output img {
