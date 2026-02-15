@@ -159,10 +159,11 @@ function connectWebSocket(): void {
 				ctx.fillStyle = 'black'
 			}
 
-			ctx.scale(data.charWidth, 1)
-
 			data.content.split('\n').forEach((line) => {
-				ctx.fillText(line, x / data.charWidth, y)
+				if (data.charWidth > 1) {
+					line = line.split('').join(' '.repeat(data.charWidth - 1))
+				}
+				ctx.fillText(line, x, y)
 				y += fontSize * lineHeight
 			})
 
