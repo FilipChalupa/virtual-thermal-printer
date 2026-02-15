@@ -41,7 +41,6 @@ h1 {
 	padding: 10px;
 	font-family: monospace;
 	box-sizing: content-box;
-	font-size: 16px; /* Base font size */
 }
 
 .paper:empty {
@@ -52,25 +51,4 @@ h1 {
 	max-width: 100%;
 	height: auto;
 	display: block;
-}
-
-.cut-line {
-	border: 1px solid
-		light-dark(#999, #666); /* Solid border for clear visibility */
-	background-color: light-dark(
-		#f0f0f0,
-		#1a1a1a
-	); /* Light background for contrast */
-	height: 20px; /* Give it a fixed height */
-	display: flex; /* Use flexbox for centering text */
-	align-items: center; /* Center vertically */
-	justify-content: center; /* Center horizontally */
-	margin: 10px 0;
-	font-size: 0.8em;
-	color: light-dark(#666, #999);
-}
-
-.reverse-printing {
-	background-color: black;
-	color: white;
 }
