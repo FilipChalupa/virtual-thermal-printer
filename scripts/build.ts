@@ -24,6 +24,8 @@ await esbuild.build({
 // Copy HTML
 await copy('public/index.html', 'dist/index.html', { overwrite: true })
 
+await copy('public/beep.mp3', 'dist/beep.mp3', { overwrite: true })
+
 console.log('Frontend build complete.')
 
 if (!production) {
