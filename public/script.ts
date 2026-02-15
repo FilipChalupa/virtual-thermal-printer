@@ -20,6 +20,31 @@ function isEscPosImage(block: ParsedEscPosBlock): block is EscPosImage {
 	return block.type === 'image'
 }
 
+function linearScrollToEnd(
+	element: HTMLElement,
+): void {
+	const pixelsPerSecond = 100
+	let lastTimestamp: number
+	const step = () => {
+		if (
+			!isAutoScrollEnabled /* @TODO: or check if already scrolled to bottom */
+		) {
+			return
+		}
+		const currentTimestamp = Date.now()
+		const top = lastTimestamp
+			? ((currentTimestamp - lastTimestamp) / 1000) * pixelsPerSecond
+			: pixelsPerSecond
+		lastTimestamp = currentTimestamp
+		element.scrollBy({
+			top,
+			behavior: 'instant',
+		})
+		requestAnimationFrame(step)
+	}
+	step()
+}
+
 const printerOutput = document.getElementById(
 	'printer-output',
 ) as HTMLDivElement
@@ -41,8 +66,7 @@ printerOutput.addEventListener('mousedown', () => isAutoScrollEnabled = false)
 printerOutput.addEventListener('touchstart', () => isAutoScrollEnabled = false)
 
 printerOutput.addEventListener('scrollend', () => {
-	const isAtBottom =
-		printerOutput.scrollHeight - printerOutput.scrollTop <=
+	const isAtBottom = printerOutput.scrollHeight - printerOutput.scrollTop <=
 		printerOutput.clientHeight + 1
 	if (isAtBottom) {
 		isAutoScrollEnabled = true
@@ -84,9 +108,7 @@ function connectWebSocket(): void {
 				}
 
 				const fontSize = baseFontSize * data.charHeight
-				const font = `${
-					data.emphasized ? 'bold ' : ''
-				}${fontSize}px monospace`
+				const font = `${data.emphasized ? 'bold ' : ''}${fontSize}px monospace`
 				ctx.font = font
 
 				if (data.charWidth > 1) {
@@ -129,12 +151,7 @@ function connectWebSocket(): void {
 			cutLine.className = 'cut-line'
 			paper.appendChild(cutLine)
 		}
-		if (isAutoScrollEnabled) {
-			printerOutput.scrollTo({
-				top: printerOutput.scrollHeight,
-				behavior: 'smooth',
-			})
-		}
+		linearScrollToEnd(printerOutput)
 	}
 
 	socket.onclose = () => {
