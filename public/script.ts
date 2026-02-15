@@ -76,6 +76,8 @@ let socket: WebSocket | undefined
 let reconnectInterval = 1000 // Initial reconnect attempt after 1 second
 let isAutoScrollEnabled = true
 
+const beepSound = new Audio('/beep.mp3')
+
 printerOutput.addEventListener('wheel', () => isAutoScrollEnabled = false)
 printerOutput.addEventListener('mousedown', () => isAutoScrollEnabled = false)
 printerOutput.addEventListener('touchstart', () => isAutoScrollEnabled = false)
@@ -161,10 +163,16 @@ function connectWebSocket(): void {
 				ctx.fillText(line, x, fontSize)
 				paper.appendChild(canvas)
 			})
-		} else if (isEscPosCommand(data) && data.name === 'Cut Paper') {
-			const cutLine = document.createElement('div')
-			cutLine.className = 'cut-line'
-			paper.appendChild(cutLine)
+		} else if (isEscPosCommand(data)) {
+			// Handle 'Beep' command
+			if (data.name === 'Beep') {
+				console.log('Playing beep sound')
+				beepSound.play()
+			} else if (data.name === 'Cut Paper') {
+				const cutLine = document.createElement('div')
+				cutLine.className = 'cut-line'
+				paper.appendChild(cutLine)
+			}
 		}
 		linearScrollToEnd(printerOutput)
 	}
