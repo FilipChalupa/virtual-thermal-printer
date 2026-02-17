@@ -64,7 +64,7 @@ jobs:
         run: |
           gh release create ${{ steps.tag.outputs.tag }} \
             --repo ${{ github.repository }} \
-            --target ${{ github.ref }} \
+            --target ${{ steps.tag.outputs.tag }} \
             --title "Release ${{ steps.tag.outputs.tag }}" \
             --notes "" \
             artifacts/*/*
