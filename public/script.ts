@@ -22,9 +22,7 @@ function isEscPosImage(block: ParsedEscPosBlock): block is EscPosImage {
 
 let isAutoScrolling = false
 
-function linearScrollToEnd(
-	element: HTMLElement,
-): void {
+function linearScrollToEnd() {
 	if (isAutoScrolling) {
 		return
 	}
@@ -40,11 +38,11 @@ function linearScrollToEnd(
 		}
 
 		const currentTimestamp = Date.now()
-		const topBefore = element.scrollTop
-		element.scrollTop += lastTimestamp
+		const topBefore = root.scrollTop
+		root.scrollTop += lastTimestamp
 			? ((currentTimestamp - lastTimestamp) / 1000) * pixelsPerSecond
 			: (pixelsPerSecond / 60)
-		if (element.scrollTop === topBefore) {
+		if (root.scrollTop === topBefore) {
 			isAutoScrolling = false
 			return
 		}
@@ -54,13 +52,8 @@ function linearScrollToEnd(
 	step()
 }
 
-const printerOutput = document.getElementById(
-	'printer-output',
-) as HTMLDivElement
-if (!printerOutput) {
-	throw new Error('Printer output element not found')
-}
-const paper = printerOutput.querySelector('.paper') as HTMLDivElement
+const root = document.documentElement
+const paper = document.querySelector('#printer-output .paper') as HTMLDivElement
 if (!paper) {
 	throw new Error('Paper element not found')
 }
@@ -73,21 +66,21 @@ let isAutoScrollEnabled = true
 const beepSound = new Audio('/beep.mp3')
 
 const disableAutoScrollIfScrollable = () => {
-	const isScrollable = printerOutput.scrollHeight > printerOutput.clientHeight
+	const isScrollable = root.scrollHeight > root.clientHeight
 	if (isScrollable) {
 		isAutoScrollEnabled = false
 	}
 }
-printerOutput.addEventListener('wheel', disableAutoScrollIfScrollable)
-printerOutput.addEventListener('mousedown', disableAutoScrollIfScrollable)
-printerOutput.addEventListener(
+document.addEventListener('wheel', disableAutoScrollIfScrollable)
+document.addEventListener('mousedown', disableAutoScrollIfScrollable)
+document.addEventListener(
 	'touchstart',
 	disableAutoScrollIfScrollable,
 )
 
-printerOutput.addEventListener('scrollend', () => {
-	const isAtBottom = printerOutput.scrollHeight - printerOutput.scrollTop <=
-		printerOutput.clientHeight + 50
+document.addEventListener('scrollend', () => {
+	const isAtBottom = root.scrollHeight - root.scrollTop <=
+		root.clientHeight + 50
 	if (isAtBottom) {
 		isAutoScrollEnabled = true
 	}
@@ -177,7 +170,7 @@ function connectWebSocket(): void {
 				paper.appendChild(cutLine)
 			}
 		}
-		linearScrollToEnd(printerOutput)
+		linearScrollToEnd()
 	}
 
 	socket.onclose = () => {
