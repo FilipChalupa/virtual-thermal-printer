@@ -1,6 +1,6 @@
 {
 	"name": "Virtual Thermal Printer",
-	"short_name": "VirtualPrinter",
+	"short_name": "Printer",
 	"start_url": "/",
 	"display": "standalone",
 	"background_color": "#ffffff",
