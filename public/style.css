@@ -12,6 +12,7 @@ body {
 	max-width: min-content;
 	margin: 0 auto;
 	overflow-y: scroll;
+	background-color: light-dark(#f0f0f0, #121212);
 }
 
 .content {
