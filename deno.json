@@ -37,7 +37,7 @@
 		"lint": "deno lint",
 		"compile": "deno task build && deno compile --allow-net --allow-read --allow-env --include dist --include deno.json -o virtual-thermal-printer main.ts",
 		"version": "deno run --allow-read --allow-write --allow-run scripts/version.ts",
-		"build": "deno run --allow-net --allow-read --allow-write --allow-run --allow-env scripts/build.ts",
+		"build": "deno run --allow-net --allow-read --allow-write --allow-run --allow-env scripts/build.ts --production",
 		"build:watch": "deno run --allow-net --allow-read --allow-write --allow-run --allow-env=ESBUILD_BINARY_PATH,XDG_CACHE_HOME,HOME,NPM_CONFIG_REGISTRY --watch=public/ scripts/build.ts"
 	},
 	"compilerOptions": {
