@@ -10,6 +10,7 @@ await esbuild.build({
 	outfile: 'dist/style.css',
 	minify: production,
 	sourcemap: !production,
+	loader: { '.png': 'file' },
 })
 
 // Bundle JavaScript
