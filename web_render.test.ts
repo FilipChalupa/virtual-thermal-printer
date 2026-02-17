@@ -28,41 +28,43 @@ Deno.test('web render integration test', async (testContext) => {
 	const waitForServerReady = async (url: string, retries = 10, delay = 500) => {
 		for (let i = 0; i < retries; i++) {
 			try {
-				const response = await fetch(url);
+				const response = await fetch(url)
 				if (response.ok) {
-					console.log('Server is ready.');
-					return true;
+					console.log('Server is ready.')
+					return true
 				}
 			} catch (_e) {
 				// console.log(`Server not ready, retrying... (${i + 1}/${retries})`);
 			}
-			await new Promise(resolve => setTimeout(resolve, delay));
+			await new Promise((resolve) => setTimeout(resolve, delay))
 		}
-		throw new Error('Server did not become ready in time.');
-	};
-	
+		throw new Error('Server did not become ready in time.')
+	}
+
 	try {
-		await waitForServerReady(baseUrl);	
-			await testContext.step('should handle the first ePOS request', async () => {
-				const requestBody1 = await Deno.readTextFile('./fixtures/request1.xml')
-				const response = await fetch(`${baseUrl}/cgi-bin/epos/service.cgi`, {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'text/xml',
-					},
-					body: requestBody1,
-				})
-				assert(response.ok, `HTTP error! status: ${response.status}`)
-				const responseText = await response.text()
-				assert(
-					responseText.includes(
-						'<response xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print" success="true"',
-					),
-					'Expected success response',
-				)
+		await waitForServerReady(baseUrl)
+		await testContext.step('should handle the first ePOS request', async () => {
+			const requestBody1 = await Deno.readTextFile('./fixtures/request1.xml')
+			const response = await fetch(`${baseUrl}/cgi-bin/epos/service.cgi`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'text/xml',
+				},
+				body: requestBody1,
 			})
-	
-			await testContext.step('should handle the second ePOS request', async () => {
+			assert(response.ok, `HTTP error! status: ${response.status}`)
+			const responseText = await response.text()
+			assert(
+				responseText.includes(
+					'<response xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print" success="true"',
+				),
+				'Expected success response',
+			)
+		})
+
+		await testContext.step(
+			'should handle the second ePOS request',
+			async () => {
 				const requestBody2 = await Deno.readTextFile('./fixtures/request2.xml')
 				const response = await fetch(`${baseUrl}/cgi-bin/epos/service.cgi`, {
 					method: 'POST',
@@ -79,10 +81,12 @@ Deno.test('web render integration test', async (testContext) => {
 					),
 					'Expected success response',
 				)
-			})
-		} finally {
-			// Small delay to allow the server to shut down cleanly
-			await new Promise((resolve) => setTimeout(resolve, 500))
-			serverProcess.kill()
-			await serverProcess.status
-		}})
+			},
+		)
+	} finally {
+		// Small delay to allow the server to shut down cleanly
+		await new Promise((resolve) => setTimeout(resolve, 500))
+		serverProcess.kill()
+		await serverProcess.status
+	}
+})
