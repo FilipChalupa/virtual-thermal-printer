@@ -1,7 +1,8 @@
 import { assert } from '@std/assert/mod.ts'
 
 Deno.test('web render integration test', async (testContext) => {
-	const port = `${5000 + Math.floor(Math.random() * 1000)}` // Use a random port for testing
+	const httpPort = `${5000 + Math.floor(Math.random() * 1000)}` // Use a random HTTP port for testing
+	const socketPort = `${6000 + Math.floor(Math.random() * 1000)}` // Use a random Socket port for testing
 	const serverCommand = new Deno.Command('deno', {
 		args: [
 			'run',
@@ -11,7 +12,9 @@ Deno.test('web render integration test', async (testContext) => {
 			'--allow-write', // Allow write for fixture generation (if needed) or other server operations
 			'main.ts',
 			'--http',
-			port,
+			httpPort,
+			'--socket',
+			socketPort,
 			'--hostname',
 			'127.0.0.1',
 		],
@@ -20,12 +23,26 @@ Deno.test('web render integration test', async (testContext) => {
 	})
 	const serverProcess = serverCommand.spawn()
 
-	const baseUrl = `http://127.0.0.1:${port}`
+	const baseUrl = `http://127.0.0.1:${httpPort}`
+
+	const waitForServerReady = async (url: string, retries = 10, delay = 500) => {
+		for (let i = 0; i < retries; i++) {
+			try {
+				const response = await fetch(url);
+				if (response.ok) {
+					console.log('Server is ready.');
+					return true;
+				}
+			} catch (_e) {
+				// console.log(`Server not ready, retrying... (${i + 1}/${retries})`);
+			}
+			await new Promise(resolve => setTimeout(resolve, delay));
+		}
+		throw new Error('Server did not become ready in time.');
+	};
 	
-		try {
-			// Wait for the server to start
-			await new Promise((resolve) => setTimeout(resolve, 1000))
-	
+	try {
+		await waitForServerReady(baseUrl);	
 			await testContext.step('should handle the first ePOS request', async () => {
 				const requestBody1 = await Deno.readTextFile('./fixtures/request1.xml')
 				const response = await fetch(`${baseUrl}/cgi-bin/epos/service.cgi`, {
@@ -64,6 +81,8 @@ Deno.test('web render integration test', async (testContext) => {
 				)
 			})
 		} finally {
+			// Small delay to allow the server to shut down cleanly
+			await new Promise((resolve) => setTimeout(resolve, 500))
 			serverProcess.kill()
 			await serverProcess.status
 		}})
