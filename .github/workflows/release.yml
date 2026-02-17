@@ -63,6 +63,8 @@ jobs:
       - name: Create Release and Upload Assets
         run: |
           gh release create ${{ steps.tag.outputs.tag }} \
+            --repo ${{ github.repository }} \
+            --target ${{ github.ref }} \
             --title "Release ${{ steps.tag.outputs.tag }}" \
             --notes "" \
             artifacts/*/*
