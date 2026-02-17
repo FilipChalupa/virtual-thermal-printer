@@ -61,10 +61,10 @@ jobs:
           path: artifacts
 
       - name: Create Release and Upload Assets
-        uses: softprops/action-gh-release@v2
-        with:
-          files: artifacts/*/*
-          tag_name: ${{ steps.tag.outputs.tag }}
-          name: Release ${{ steps.tag.outputs.tag }}
+        run: |
+          gh release create ${{ steps.tag.outputs.tag }} \
+            --title "Release ${{ steps.tag.outputs.tag }}" \
+            --notes "" \
+            artifacts/*/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
