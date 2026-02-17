@@ -28,19 +28,27 @@ body {
 	top: 0;
 }
 
-.placeholder::after {
-	content: '';
+.placeholder-surface {
+	text-align: center;
 	flex-basis: 100%;
 	flex-shrink: 0;
 	background-color: light-dark(#c8c8c8, #333);
-	background-image: url('icons/original.png');
-	background-repeat: no-repeat;
-	background-position: center;
-	background-size: 140px;
 	display: grid;
 	align-items: center;
 	justify-content: center;
+	justify-items: center;
+	align-content: center;
+	row-gap: 20px;
 	filter: grayscale(1);
+}
+
+.placeholder-surface img {
+	max-width: 50%;
+	height: auto;
+}
+
+#placeholder-text.is-hidden {
+	visibility: hidden;
 }
 
 h1 {
@@ -68,7 +76,7 @@ h1 {
 	padding-block: 0;
 }
 
-#printer-output img {
+#printer-output .paper img {
 	max-width: 100%;
 	height: auto;
 	display: block;

@@ -86,6 +86,12 @@ document.addEventListener('scrollend', () => {
 	}
 })
 
+const placeholderText = document.getElementById(
+	'placeholder-text',
+) as HTMLParagraphElement
+
+let isFirstMessage = true
+
 function connectWebSocket(): void {
 	const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
 	socket = new WebSocket(`${protocol}//${location.host}/stream`)
@@ -97,9 +103,15 @@ function connectWebSocket(): void {
 		while (paper.firstChild) {
 			paper.removeChild(paper.firstChild)
 		}
+		placeholderText.classList.remove('is-hidden')
+		isFirstMessage = true
 	}
 
 	socket.onmessage = (event: MessageEvent) => {
+		if (isFirstMessage) {
+			placeholderText.classList.add('is-hidden')
+			isFirstMessage = false
+		}
 		const data: ParsedEscPosBlock = JSON.parse(event.data)
 		console.log(data)
 
