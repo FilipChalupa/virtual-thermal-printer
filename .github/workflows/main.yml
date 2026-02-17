@@ -1,6 +1,9 @@
 name: Build
 
-on: push
+on:
+  push:
+    branches:
+      - '**'
 
 env:
   DENO_DIR: deno_cache
