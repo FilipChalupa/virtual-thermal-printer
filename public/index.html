@@ -5,6 +5,7 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>Virtual thermal printer</title>
 		<meta name="color-scheme" content="light dark" />
+		<meta name="theme-color" content="#e6b8ff" />
 		<link rel="stylesheet" href="style.css" />
 		<link
 			rel="icon"
@@ -25,8 +26,8 @@
 		<script>
 			if ('serviceWorker' in navigator) {
 				window.addEventListener('load', () => {
-					navigator.serviceWorker.register('/serviceWorker.js');
-				});
+					navigator.serviceWorker.register('/serviceWorker.js')
+				})
 			}
 		</script>
 	</body>

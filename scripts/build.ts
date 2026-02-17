@@ -25,6 +25,13 @@ await esbuild.build({
 await copy('public/index.html', 'dist/index.html', { overwrite: true })
 
 await copy('public/beep.mp3', 'dist/beep.mp3', { overwrite: true })
+await copy('public/webmanifest.json', 'dist/webmanifest.json', {
+	overwrite: true,
+})
+await copy('public/serviceWorker.js', 'dist/serviceWorker.js', {
+	overwrite: true,
+})
+await copy('public/icons/', 'dist/icons/', { overwrite: true })
 
 console.log('Frontend build complete.')
 
