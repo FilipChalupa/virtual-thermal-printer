@@ -10,6 +10,7 @@
 			rel="icon"
 			href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🖨️</text></svg>"
 		>
+		<link rel="manifest" href="/webmanifest.json">
 		<script type="module" src="script.js"></script>
 	</head>
 	<body>
@@ -21,5 +22,12 @@
 				<div class="paper"></div>
 			</div>
 		</div>
+		<script>
+			if ('serviceWorker' in navigator) {
+				window.addEventListener('load', () => {
+					navigator.serviceWorker.register('/serviceWorker.js');
+				});
+			}
+		</script>
 	</body>
 </html>
