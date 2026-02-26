@@ -27,8 +27,8 @@ COPY --from=builder /app/shared ./shared
 RUN deno cache main.ts
 
 # Expose HTTP and ESC/POS socket ports
-EXPOSE 8100
+EXPOSE 80
 EXPOSE 9100
 
 # Run the server
-CMD ["task", "start", "--http", "8100"]
+CMD ["task", "start"]
