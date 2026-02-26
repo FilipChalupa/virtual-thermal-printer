@@ -23,13 +23,12 @@ COPY --from=builder /app/escpos.ts ./escpos.ts
 COPY --from=builder /app/escpos-transform.ts ./escpos-transform.ts
 COPY --from=builder /app/shared ./shared
 
-# Pre-cache runtime dependencies
-RUN deno install
+# Pre-cache dependencies in the final image to avoid runtime downloads
+RUN deno cache main.ts
 
 # Expose HTTP and ESC/POS socket ports
 EXPOSE 80
 EXPOSE 9100
 
 # Run the server
-# We use the default ports 80 and 9100 as defined in main.ts
 CMD ["task", "start"]
