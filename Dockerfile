@@ -32,4 +32,4 @@ EXPOSE 9100
 
 # Run the server
 # We use the default ports 80 and 9100 as defined in main.ts
-CMD ["run", "--allow-net", "--allow-read", "--allow-env", "main.ts"]
+CMD ["task", "start"]
