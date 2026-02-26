@@ -120,6 +120,7 @@ app.use(
 Deno.serve(
 	{
 		port: httpPort,
+		hostname: '0.0.0.0',
 		onListen(localAddress) {
 			console.log(
 				`Listening to HTTP on http://${localAddress.hostname}:${localAddress.port}.`,
@@ -132,6 +133,7 @@ Deno.serve(
 if (!Deno.env.get('DENO_DEPLOYMENT_ID')) {
 	const escposListener = Deno.listen({
 		port: socketPort,
+		hostname: '0.0.0.0',
 	})
 	console.log(`Listening to Socket on port ${socketPort}.`)
 
