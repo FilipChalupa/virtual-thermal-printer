@@ -43,6 +43,14 @@ Deno.test('web render integration test', async (testContext) => {
 
 	try {
 		await waitForServerReady(baseUrl)
+
+		await testContext.step('should return OK for /health', async () => {
+			const response = await fetch(`${baseUrl}/health`)
+			assert(response.ok, `HTTP error! status: ${response.status}`)
+			const responseText = await response.text()
+			assert(responseText === 'OK', `Expected OK, got ${responseText}`)
+		})
+
 		await testContext.step('should handle the first ePOS request', async () => {
 			const requestBody1 = await Deno.readTextFile('./fixtures/request1.xml')
 			const response = await fetch(`${baseUrl}/cgi-bin/epos/service.cgi`, {

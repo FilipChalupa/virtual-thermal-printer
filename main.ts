@@ -43,6 +43,8 @@ const socketPort = validatePort(flags['socket'], 'Socket')
 
 const app = new Hono()
 
+app.get('/health', (context) => context.text('OK'))
+
 const eposEndpoint = '/cgi-bin/epos/service.cgi'
 app.use(eposEndpoint, cors())
 app.post(eposEndpoint, async (context) => {
