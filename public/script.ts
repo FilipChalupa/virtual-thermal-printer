@@ -145,7 +145,6 @@ function connectWebSocket(): void {
 					line = line.split('').join(' '.repeat(data.charWidth - 1))
 				}
 
-				const textMetrics = ctx.measureText(line)
 				canvas.width = printerWidth
 				canvas.height = fontSize * lineHeight
 
