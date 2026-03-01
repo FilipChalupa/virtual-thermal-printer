@@ -72,13 +72,14 @@ h1 {
 	color-scheme: light;
 	margin-inline: auto;
 	max-width: 100%;
+	container-type: inline-size;
 }
 
 .paper-content {
-	max-width: 100%;
+	font-size: calc(100cqw / (576 / 16));
 }
 
-.paper:empty:not(:empty) {
+.paper:has(.paper-content:not(:empty)) {
 	padding-block: 10px;
 }
 

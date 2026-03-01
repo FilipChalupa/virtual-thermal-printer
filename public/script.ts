@@ -53,13 +53,19 @@ function linearScrollToEnd() {
 }
 
 const root = document.documentElement
-const paperContent = document.querySelector(
-	'#printer-output .paper-content',
+const paper = document.querySelector(
+	'#printer-output .paper',
 ) as HTMLDivElement
-if (!paperContent) {
+if (!paper) {
 	throw new Error('Paper element not found')
 }
-paperContent.style.width = `${printerWidth}px`
+const paperContent = paper.querySelector(
+	'.paper-content',
+) as HTMLDivElement
+if (!paperContent) {
+	throw new Error('Paper content element not found')
+}
+paper.style.width = `${printerWidth + 20}px`
 
 let socket: WebSocket | undefined
 let reconnectInterval = 1000 // Initial reconnect attempt after 1 second
