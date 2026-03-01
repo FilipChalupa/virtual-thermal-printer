@@ -53,11 +53,13 @@ function linearScrollToEnd() {
 }
 
 const root = document.documentElement
-const paper = document.querySelector('#printer-output .paper') as HTMLDivElement
-if (!paper) {
+const paperContent = document.querySelector(
+	'#printer-output .paper-content',
+) as HTMLDivElement
+if (!paperContent) {
 	throw new Error('Paper element not found')
 }
-paper.style.width = `${printerWidth}px`
+paperContent.style.width = `${printerWidth}px`
 
 let socket: WebSocket | undefined
 let reconnectInterval = 1000 // Initial reconnect attempt after 1 second
@@ -100,8 +102,8 @@ function connectWebSocket(): void {
 		console.log('WebSocket connected.')
 		reconnectInterval = 1000 // Reset reconnect interval on successful connection
 		// Clear existing content on successful reconnect
-		while (paper.firstChild) {
-			paper.removeChild(paper.firstChild)
+		while (paperContent.firstChild) {
+			paperContent.removeChild(paperContent.firstChild)
 		}
 		placeholderText.classList.remove('is-hidden')
 		isFirstMessage = true
@@ -123,11 +125,11 @@ function connectWebSocket(): void {
 			img.src = data.base64
 			img.width = data.width
 			img.height = data.height
-			paper.appendChild(img)
+			paperContent.appendChild(img)
 		} else if (isEscPosText(data)) {
 			data.content.split('\n').forEach((line) => {
 				if (line === '') {
-					paper.appendChild(document.createElement('br'))
+					paperContent.appendChild(document.createElement('br'))
 					return
 				}
 
@@ -173,7 +175,7 @@ function connectWebSocket(): void {
 				}
 
 				ctx.fillText(line, x, fontSize)
-				paper.appendChild(canvas)
+				paperContent.appendChild(canvas)
 			})
 		} else if (isEscPosCommand(data)) {
 			// Handle 'Beep' command
@@ -183,7 +185,7 @@ function connectWebSocket(): void {
 			} else if (data.name === 'Cut Paper') {
 				const cutLine = document.createElement('div')
 				cutLine.className = 'cut-line'
-				paper.appendChild(cutLine)
+				paperContent.appendChild(cutLine)
 			}
 		}
 		linearScrollToEnd()
