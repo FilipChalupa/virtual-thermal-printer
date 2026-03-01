@@ -57,7 +57,7 @@ const paper = document.querySelector('#printer-output .paper') as HTMLDivElement
 if (!paper) {
 	throw new Error('Paper element not found')
 }
-paper.style.width = `${printerWidth}px`
+paper.style.maxWidth = `${printerWidth}px`
 
 let socket: WebSocket | undefined
 let reconnectInterval = 1000 // Initial reconnect attempt after 1 second
@@ -141,7 +141,7 @@ function connectWebSocket(): void {
 				}
 
 				const textMetrics = ctx.measureText(line)
-				canvas.width = textMetrics.width
+				canvas.width = printerWidth
 				canvas.height = fontSize * lineHeight
 
 				// It's important to set the font again after resizing the canvas
@@ -156,8 +156,8 @@ function connectWebSocket(): void {
 
 				const x = {
 					[Alignment.Left]: 0,
-					[Alignment.Center]: canvas.width / 2,
-					[Alignment.Right]: canvas.width,
+					[Alignment.Center]: printerWidth / 2,
+					[Alignment.Right]: printerWidth,
 				}[data.alignment] ?? 0
 
 				if (data.reversePrinting) {

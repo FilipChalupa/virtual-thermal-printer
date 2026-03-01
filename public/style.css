@@ -9,7 +9,8 @@
 }
 
 body {
-	max-width: min-content;
+	width: fit-content;
+	max-width: 100%;
 	margin: 0 auto;
 	overflow-y: scroll;
 	background-color: light-dark(#f0f0f0, #121212);
@@ -70,13 +71,15 @@ h1 {
 	box-sizing: content-box;
 	position: relative;
 	color-scheme: light;
+	margin-inline: auto;
 }
 
 .paper:empty {
 	padding-block: 0;
 }
 
-#printer-output .paper img {
+#printer-output .paper img,
+#printer-output .paper canvas {
 	max-width: 100%;
 	height: auto;
 	display: block;
