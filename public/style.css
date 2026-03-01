@@ -74,15 +74,18 @@ h1 {
 	margin-inline: auto;
 }
 
+.paper > * {
+	display: block;
+	max-width: 100%;
+}
+
 .paper:empty {
 	padding-block: 0;
 }
 
 #printer-output .paper img,
 #printer-output .paper canvas {
-	max-width: 100%;
 	height: auto;
-	display: block;
 }
 
 .cut-line {

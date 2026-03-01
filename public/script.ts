@@ -126,6 +126,11 @@ function connectWebSocket(): void {
 			paper.appendChild(img)
 		} else if (isEscPosText(data)) {
 			data.content.split('\n').forEach((line) => {
+				if (line === '') {
+					paper.appendChild(document.createElement('br'))
+					return
+				}
+
 				const canvas = document.createElement('canvas')
 				const ctx = canvas.getContext('2d')
 				if (!ctx) {
