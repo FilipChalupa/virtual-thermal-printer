@@ -1,8 +1,6 @@
 import { Readable } from 'node:stream'
 import type { Socket } from 'node:net'
-import {
-	EscPosTransformer,
-} from './escpos-transform.js'
+import { EscPosTransformer } from 'escpos-decoder'
 
 const HTTP_METHODS = [
 	'GET ',

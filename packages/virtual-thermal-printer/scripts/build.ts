@@ -1,6 +1,10 @@
 import * as esbuild from 'esbuild'
 import { cp } from 'node:fs/promises'
+import { resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { dirname } from 'node:path'
 
+const __dirname = dirname(fileURLToPath(import.meta.url))
 const production = process.argv.includes('--production')
 
 await esbuild.build({
@@ -18,6 +22,9 @@ await esbuild.build({
 	outfile: 'dist/script.js',
 	minify: production,
 	sourcemap: !production,
+	alias: {
+		'escpos-decoder': resolve(__dirname, '../../escpos-decoder/src/index.ts'),
+	},
 })
 
 await cp('public/index.html', 'dist/index.html')

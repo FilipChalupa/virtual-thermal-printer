@@ -1,0 +1,26 @@
+{
+	"name": "escpos-decoder",
+	"version": "0.1.0",
+	"type": "module",
+	"exports": {
+		".": {
+			"source": "./src/index.ts",
+			"import": "./dist/index.js",
+			"types": "./dist/index.d.ts"
+		}
+	},
+	"scripts": {
+		"build": "tsc --project tsconfig.json",
+		"test": "vitest run"
+	},
+	"dependencies": {
+		"iconv-lite": "^0.6.3",
+		"pngjs": "^7.0.0"
+	},
+	"devDependencies": {
+		"@types/node": "^22.10.2",
+		"@types/pngjs": "^6.0.5",
+		"typescript": "^5.7.3",
+		"vitest": "^2.1.8"
+	}
+}

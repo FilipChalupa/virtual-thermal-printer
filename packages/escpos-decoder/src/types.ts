@@ -27,5 +27,5 @@ export interface EscPosImage {
 	type: 'image'
 	width: number
 	height: number
-	base64: string // Changed from data: number[]
+	base64: string
 }

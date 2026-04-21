@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import iconv from 'iconv-lite'
-import { parseEscPos, PrinterState } from './escpos-transform.js'
-import { Alignment } from './shared/types.js'
+import { parseEscPos, PrinterState } from './transformer.js'
+import { Alignment } from './types.js'
 
 function makeState(): PrinterState {
 	return {

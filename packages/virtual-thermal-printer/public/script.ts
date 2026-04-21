@@ -4,8 +4,8 @@ import {
 	EscPosImage,
 	EscPosText,
 	ParsedEscPosBlock,
-} from '../shared/types.ts'
-import { printerWidth } from '../shared/settings.ts'
+} from 'escpos-decoder'
+import { printerWidth } from '../settings.js'
 
 // Type guards for narrowing ParsedEscPosBlock
 function isEscPosText(block: ParsedEscPosBlock): block is EscPosText {

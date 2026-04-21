@@ -1,6 +1,6 @@
 import iconv from 'iconv-lite'
 import { PNG } from 'pngjs'
-import { Alignment, EscPosText, ParsedEscPosBlock } from './shared/types.js'
+import { Alignment, EscPosText, ParsedEscPosBlock } from './types.js'
 
 export interface PrinterState {
 	alignment: Alignment

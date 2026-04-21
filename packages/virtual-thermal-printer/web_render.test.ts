@@ -32,7 +32,7 @@ describe('web render integration test', () => {
 
 		serverProcess = spawn(
 			process.execPath,
-			['--import', 'tsx/esm', join(__dirname, 'main.ts'), '--http', httpPort, '--socket', socketPort],
+			['--import', 'tsx/esm', '--conditions=source', join(__dirname, 'main.ts'), '--http', httpPort, '--socket', socketPort],
 			{ stdio: 'inherit' },
 		)
 
