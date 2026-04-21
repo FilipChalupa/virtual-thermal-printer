@@ -23,7 +23,7 @@ await esbuild.build({
 	minify: production,
 	sourcemap: !production,
 	alias: {
-		'escpos-decoder': resolve(__dirname, '../../escpos-decoder/src/index.ts'),
+		'escpos-decoder/types': resolve(__dirname, '../../escpos-decoder/src/types.ts'),
 	},
 })
 

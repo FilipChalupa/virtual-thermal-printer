@@ -19,7 +19,7 @@ export interface ParsedCommandResult {
 }
 
 class AccumulatingBuffer {
-	#data = new Uint8Array(0)
+	#data: Uint8Array<ArrayBufferLike> = new Uint8Array(0)
 
 	get length(): number {
 		return this.#data.length

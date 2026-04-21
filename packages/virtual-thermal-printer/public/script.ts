@@ -4,7 +4,7 @@ import {
 	EscPosImage,
 	EscPosText,
 	ParsedEscPosBlock,
-} from 'escpos-decoder'
+} from 'escpos-decoder/types'
 import { printerWidth } from '../settings.js'
 
 // Type guards for narrowing ParsedEscPosBlock
