@@ -1,34 +1,27 @@
-FROM denoland/deno:alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-# Cache dependencies
-COPY deno.json deno.lock ./
-RUN deno install
+COPY package.json package-lock.json ./
+RUN npm ci
 
 COPY . .
 
-# Build the frontend
-RUN deno task build
+RUN npm run build
 
-FROM denoland/deno:alpine
+FROM node:22-alpine
 
 WORKDIR /app
 
-# Copy the built dist and necessary files
+COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/deno.json ./deno.json
+COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/main.ts ./main.ts
 COPY --from=builder /app/escpos.ts ./escpos.ts
 COPY --from=builder /app/escpos-transform.ts ./escpos-transform.ts
 COPY --from=builder /app/shared ./shared
 
-# Ensure all dependencies are cached in the final image
-RUN deno cache main.ts
-
-# Expose HTTP and ESC/POS socket ports
 EXPOSE 80
 EXPOSE 9100
 
-# Run the server
-CMD ["task", "start"]
+CMD ["npm", "start"]

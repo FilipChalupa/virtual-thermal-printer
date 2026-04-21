@@ -1,9 +1,8 @@
 import * as esbuild from 'esbuild'
-import { copy } from '@std/fs'
+import { cp } from 'node:fs/promises'
 
-const production = Deno.args.includes('--production')
+const production = process.argv.includes('--production')
 
-// Bundle CSS
 await esbuild.build({
 	entryPoints: ['public/style.css'],
 	bundle: true,
@@ -13,7 +12,6 @@ await esbuild.build({
 	loader: { '.png': 'file' },
 })
 
-// Bundle JavaScript
 await esbuild.build({
 	entryPoints: ['public/script.ts'],
 	bundle: true,
@@ -22,20 +20,14 @@ await esbuild.build({
 	sourcemap: !production,
 })
 
-// Copy HTML
-await copy('public/index.html', 'dist/index.html', { overwrite: true })
-
-await copy('public/beep.mp3', 'dist/beep.mp3', { overwrite: true })
-await copy('public/webmanifest.json', 'dist/webmanifest.json', {
-	overwrite: true,
-})
-await copy('public/serviceWorker.js', 'dist/serviceWorker.js', {
-	overwrite: true,
-})
-await copy('public/icons/', 'dist/icons/', { overwrite: true })
+await cp('public/index.html', 'dist/index.html')
+await cp('public/beep.mp3', 'dist/beep.mp3')
+await cp('public/webmanifest.json', 'dist/webmanifest.json')
+await cp('public/serviceWorker.js', 'dist/serviceWorker.js')
+await cp('public/icons/', 'dist/icons/', { recursive: true, force: true })
 
 console.log('Frontend build complete.')
 
 if (production) {
-	Deno.exit(0)
+	process.exit(0)
 }

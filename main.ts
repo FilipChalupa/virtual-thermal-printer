@@ -1,10 +1,9 @@
 import { Hono } from 'hono'
-import type { Context } from 'hono'
 import { cors } from 'hono/cors'
 import { serve } from '@hono/node-server'
-import type { AddressInfo } from 'node:net'
+import type { ServerType } from '@hono/node-server'
 import { serveStatic } from '@hono/node-server/serve-static'
-import { createNodeWebSocket } from '@hono/node-server/ws'
+import { WebSocketServer, WebSocket } from 'ws'
 import { parseArgs } from 'node:util'
 import { readFileSync } from 'node:fs'
 import { createServer } from 'node:net'
@@ -52,7 +51,6 @@ const httpPort = validatePort(flags['http'] ?? '80', 'HTTP')
 const socketPort = validatePort(flags['socket'] ?? '9100', 'Socket')
 
 const app = new Hono()
-const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app })
 
 app.get('/health', (context) => context.text('OK'))
 
@@ -88,53 +86,45 @@ app.post(eposEndpoint, async (context) => {
 })
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const connectedClients = new Set<any>()
+app.use('/*', serveStatic({ root: join(__dirname, 'dist') }) as any)
 
-app.get(
-	'/stream',
-	upgradeWebSocket((_c: Context) => {
-		return {
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			onOpen: (_evt: any, ws: any) => {
-				console.log('WebSocket opened.')
-				connectedClients.add(ws)
-			},
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			onMessage: (_evt: any, _ws: any) => {
-				// Do nothing for now
-			},
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			onClose: (_evt: any, ws: any) => {
-				console.log('WebSocket closed.')
-				connectedClients.delete(ws)
-			},
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			onError: (evt: any, ws: any) => {
-				console.log('WebSocket error:', (evt as ErrorEvent).message)
-				connectedClients.delete(ws)
-			},
-		}
-	}),
-)
+const connectedClients = new Set<WebSocket>()
 
-app.use(
-	'/*',
-	serveStatic({ root: join(__dirname, 'dist') }),
-)
-
-const server = serve(
+const server: ServerType = serve(
 	{
 		fetch: app.fetch,
 		port: httpPort,
 		hostname: '0.0.0.0',
 	},
-	(info: AddressInfo) => {
-		console.log(
-			`Listening to HTTP on http://${info.address}:${info.port}.`,
-		)
+	(info) => {
+		console.log(`Listening to HTTP on http://${info.address}:${info.port}.`)
 	},
 )
-injectWebSocket(server)
+
+const wss = new WebSocketServer({ noServer: true })
+
+server.on('upgrade', (request, socket, head) => {
+	if (request.url === '/stream') {
+		wss.handleUpgrade(request, socket, head, (ws) => {
+			wss.emit('connection', ws, request)
+		})
+	} else {
+		socket.destroy()
+	}
+})
+
+wss.on('connection', (ws) => {
+	console.log('WebSocket opened.')
+	connectedClients.add(ws)
+	ws.on('close', () => {
+		console.log('WebSocket closed.')
+		connectedClients.delete(ws)
+	})
+	ws.on('error', (err) => {
+		console.log('WebSocket error:', err.message)
+		connectedClients.delete(ws)
+	})
+})
 
 const escposServer = createServer((socket) => {
 	handleConnection(socket, connectedClients)

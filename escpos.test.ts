@@ -1,28 +1,10 @@
-import { assertEquals } from '@std/assert/mod.ts'
-import { parseEscPos, PrinterState } from './escpos-transform.ts'
-import { Alignment } from './shared/types.ts'
+import { describe, it, expect } from 'vitest'
 import iconv from 'iconv-lite'
+import { parseEscPos, PrinterState } from './escpos-transform.js'
+import { Alignment } from './shared/types.js'
 
-Deno.test('parseEscPos - Initialize Printer', async () => {
-	const command = new Uint8Array([0x1b, 0x40])
-	const state: PrinterState = {
-		alignment: Alignment.Center,
-		charWidth: 1,
-		charHeight: 1,
-		leftMargin: 10,
-		printAreaWidth: 100,
-		emphasized: false,
-		underline: 0,
-		reversePrinting: false,
-	}
-	const result = await parseEscPos(command, state)
-	assertEquals(result.data, { type: 'command', name: 'Initialize Printer' })
-	assertEquals(state.alignment, Alignment.Left)
-})
-
-Deno.test('parseEscPos - Cut Paper', async () => {
-	const command = new Uint8Array([0x1d, 0x56])
-	const state: PrinterState = {
+function makeState(): PrinterState {
+	return {
 		alignment: Alignment.Left,
 		charWidth: 1,
 		charHeight: 1,
@@ -32,225 +14,144 @@ Deno.test('parseEscPos - Cut Paper', async () => {
 		underline: 0,
 		reversePrinting: false,
 	}
-	const result = await parseEscPos(command, state)
-	assertEquals(result.data, {
-		type: 'command',
-		name: 'Cut Paper',
-		details: { command: 'GS V', cutType: 'Full' },
+}
+
+describe('parseEscPos', () => {
+	it('Initialize Printer', async () => {
+		const command = new Uint8Array([0x1b, 0x40])
+		const state = makeState()
+		state.alignment = Alignment.Center
+		const result = await parseEscPos(command, state)
+		expect(result.data).toEqual({ type: 'command', name: 'Initialize Printer' })
+		expect(state.alignment).toBe(Alignment.Left)
 	})
-})
 
-Deno.test('parseEscPos - Set Alignment', async () => {
-	const command = new Uint8Array([0x1b, 0x61, 1])
-	const state: PrinterState = {
-		alignment: Alignment.Left,
-		charWidth: 1,
-		charHeight: 1,
-		leftMargin: 0,
-		printAreaWidth: 0,
-		emphasized: false,
-		underline: 0,
-		reversePrinting: false,
-	}
-	const result = await parseEscPos(command, state)
-	assertEquals(result.data, {
-		type: 'command',
-		name: 'Set Alignment',
-		details: { alignment: 'Center' },
+	it('Cut Paper', async () => {
+		const command = new Uint8Array([0x1d, 0x56])
+		const result = await parseEscPos(command, makeState())
+		expect(result.data).toEqual({
+			type: 'command',
+			name: 'Cut Paper',
+			details: { command: 'GS V', cutType: 'Full' },
+		})
 	})
-	assertEquals(state.alignment, Alignment.Center)
-})
 
-Deno.test('parseEscPos - Print Text', async () => {
-	const command = iconv.encode('Hello, World!', 'CP852')
-	const state: PrinterState = {
-		alignment: Alignment.Left,
-		charWidth: 1,
-		charHeight: 1,
-		leftMargin: 0,
-		printAreaWidth: 0,
-		emphasized: false,
-		underline: 0,
-		reversePrinting: false,
-	}
-	const result = await parseEscPos(command, state)
-	assertEquals(result.data, {
-		type: 'text',
-		content: 'Hello, World!',
-		alignment: Alignment.Left,
-		emphasized: false,
-		underline: 0,
-		charWidth: 1,
-		charHeight: 1,
-		reversePrinting: false,
+	it('Set Alignment', async () => {
+		const command = new Uint8Array([0x1b, 0x61, 1])
+		const state = makeState()
+		const result = await parseEscPos(command, state)
+		expect(result.data).toEqual({
+			type: 'command',
+			name: 'Set Alignment',
+			details: { alignment: 'Center' },
+		})
+		expect(state.alignment).toBe(Alignment.Center)
 	})
-})
 
-Deno.test('parseEscPos - CP852 Encoded Text', async () => {
-	const command = iconv.encode('Dva obrázky', 'CP852')
-	const state: PrinterState = {
-		alignment: Alignment.Left,
-		charWidth: 1,
-		charHeight: 1,
-		leftMargin: 0,
-		printAreaWidth: 0,
-		emphasized: false,
-		underline: 0,
-		reversePrinting: false,
-	}
-	const result = await parseEscPos(command, state)
-	assertEquals(result.data, {
-		type: 'text',
-		content: 'Dva obrázky',
-		alignment: Alignment.Left,
-		emphasized: false,
-		underline: 0,
-		charWidth: 1,
-		charHeight: 1,
-		reversePrinting: false,
+	it('Print Text', async () => {
+		const command = iconv.encode('Hello, World!', 'CP852')
+		const result = await parseEscPos(command, makeState())
+		expect(result.data).toEqual({
+			type: 'text',
+			content: 'Hello, World!',
+			alignment: Alignment.Left,
+			emphasized: false,
+			underline: 0,
+			charWidth: 1,
+			charHeight: 1,
+			reversePrinting: false,
+		})
 	})
-})
 
-Deno.test('parseEscPos - Set Char Size', async () => {
-	const command = new Uint8Array([0x1d, 0x21, 0x11])
-	const state: PrinterState = {
-		alignment: Alignment.Left,
-		charWidth: 1,
-		charHeight: 1,
-		leftMargin: 0,
-		printAreaWidth: 0,
-		emphasized: false,
-		underline: 0,
-		reversePrinting: false,
-	}
-	const result = await parseEscPos(command, state)
-	assertEquals(result.data, {
-		type: 'command',
-		name: 'Set Char Size',
-		details: { width: 2, height: 2 },
+	it('CP852 Encoded Text', async () => {
+		const command = iconv.encode('Dva obrázky', 'CP852')
+		const result = await parseEscPos(command, makeState())
+		expect(result.data).toEqual({
+			type: 'text',
+			content: 'Dva obrázky',
+			alignment: Alignment.Left,
+			emphasized: false,
+			underline: 0,
+			charWidth: 1,
+			charHeight: 1,
+			reversePrinting: false,
+		})
 	})
-	assertEquals(state.charWidth, 2)
-	assertEquals(state.charHeight, 2)
-})
 
-Deno.test('parseEscPos - Set Left Margin', async () => {
-	const command = new Uint8Array([0x1d, 0x4c, 0x0a, 0x00])
-	const state: PrinterState = {
-		alignment: Alignment.Left,
-		charWidth: 1,
-		charHeight: 1,
-		leftMargin: 0,
-		printAreaWidth: 0,
-		emphasized: false,
-		underline: 0,
-		reversePrinting: false,
-	}
-	const result = await parseEscPos(command, state)
-	assertEquals(result.data, {
-		type: 'command',
-		name: 'Set Left Margin',
-		details: { margin: 10 },
+	it('Set Char Size', async () => {
+		const command = new Uint8Array([0x1d, 0x21, 0x11])
+		const state = makeState()
+		const result = await parseEscPos(command, state)
+		expect(result.data).toEqual({
+			type: 'command',
+			name: 'Set Char Size',
+			details: { width: 2, height: 2 },
+		})
+		expect(state.charWidth).toBe(2)
+		expect(state.charHeight).toBe(2)
 	})
-	assertEquals(state.leftMargin, 10)
-})
 
-Deno.test('parseEscPos - Set Print Area Width', async () => {
-	const command = new Uint8Array([0x1d, 0x57, 0x80, 0x01])
-	const state: PrinterState = {
-		alignment: Alignment.Left,
-		charWidth: 1,
-		charHeight: 1,
-		leftMargin: 0,
-		printAreaWidth: 0,
-		emphasized: false,
-		underline: 0,
-		reversePrinting: false,
-	}
-	const result = await parseEscPos(command, state)
-	assertEquals(result.data, {
-		type: 'command',
-		name: 'Set Print Area Width',
-		details: { width: 384 },
+	it('Set Left Margin', async () => {
+		const command = new Uint8Array([0x1d, 0x4c, 0x0a, 0x00])
+		const state = makeState()
+		const result = await parseEscPos(command, state)
+		expect(result.data).toEqual({
+			type: 'command',
+			name: 'Set Left Margin',
+			details: { margin: 10 },
+		})
+		expect(state.leftMargin).toBe(10)
 	})
-	assertEquals(state.printAreaWidth, 384)
-})
 
-Deno.test('parseEscPos - Cut Paper (ESC i)', async () => {
-	const command = new Uint8Array([0x1b, 0x69])
-	const state: PrinterState = {
-		alignment: Alignment.Left,
-		charWidth: 1,
-		charHeight: 1,
-		leftMargin: 0,
-		printAreaWidth: 0,
-		emphasized: false,
-		underline: 0,
-		reversePrinting: false,
-	}
-	const result = await parseEscPos(command, state)
-	assertEquals(result.data, {
-		type: 'command',
-		name: 'Cut Paper',
-		details: { command: 'ESC i', cutType: 'Full' },
+	it('Set Print Area Width', async () => {
+		const command = new Uint8Array([0x1d, 0x57, 0x80, 0x01])
+		const state = makeState()
+		const result = await parseEscPos(command, state)
+		expect(result.data).toEqual({
+			type: 'command',
+			name: 'Set Print Area Width',
+			details: { width: 384 },
+		})
+		expect(state.printAreaWidth).toBe(384)
 	})
-})
 
-Deno.test('parseEscPos - Cut Paper (GS V without argument)', async () => {
-	const command = new Uint8Array([0x1d, 0x56])
-	const state: PrinterState = {
-		alignment: Alignment.Left,
-		charWidth: 1,
-		charHeight: 1,
-		leftMargin: 0,
-		printAreaWidth: 0,
-		emphasized: false,
-		underline: 0,
-		reversePrinting: false,
-	}
-	const result = await parseEscPos(command, state)
-	assertEquals(result.data, {
-		type: 'command',
-		name: 'Cut Paper',
-		details: { command: 'GS V', cutType: 'Full' },
+	it('Cut Paper (ESC i)', async () => {
+		const command = new Uint8Array([0x1b, 0x69])
+		const result = await parseEscPos(command, makeState())
+		expect(result.data).toEqual({
+			type: 'command',
+			name: 'Cut Paper',
+			details: { command: 'ESC i', cutType: 'Full' },
+		})
 	})
-})
 
-Deno.test('parseEscPos - Cut Paper (GS V 0x00)', async () => {
-	const command = new Uint8Array([0x1d, 0x56, 0x00])
-	const state: PrinterState = {
-		alignment: Alignment.Left,
-		charWidth: 1,
-		charHeight: 1,
-		leftMargin: 0,
-		printAreaWidth: 0,
-		emphasized: false,
-		underline: 0,
-		reversePrinting: false,
-	}
-	const result = await parseEscPos(command, state)
-	assertEquals(result.data, {
-		type: 'command',
-		name: 'Cut Paper',
-		details: { command: 'GS V n', cutType: 'Full' },
+	it('Cut Paper (GS V without argument)', async () => {
+		const command = new Uint8Array([0x1d, 0x56])
+		const result = await parseEscPos(command, makeState())
+		expect(result.data).toEqual({
+			type: 'command',
+			name: 'Cut Paper',
+			details: { command: 'GS V', cutType: 'Full' },
+		})
 	})
-})
 
-Deno.test('parseEscPos - Cut Paper (GS V 0x01)', async () => {
-	const command = new Uint8Array([0x1d, 0x56, 0x01])
-	const state: PrinterState = {
-		alignment: Alignment.Left,
-		charWidth: 1,
-		charHeight: 1,
-		leftMargin: 0,
-		printAreaWidth: 0,
-		emphasized: false,
-		underline: 0,
-		reversePrinting: false,
-	}
-	const result = await parseEscPos(command, state)
-	assertEquals(result.data, {
-		type: 'command',
-		name: 'Cut Paper',
-		details: { command: 'GS V n', cutType: 'Partial' },
+	it('Cut Paper (GS V 0x00)', async () => {
+		const command = new Uint8Array([0x1d, 0x56, 0x00])
+		const result = await parseEscPos(command, makeState())
+		expect(result.data).toEqual({
+			type: 'command',
+			name: 'Cut Paper',
+			details: { command: 'GS V n', cutType: 'Full' },
+		})
+	})
+
+	it('Cut Paper (GS V 0x01)', async () => {
+		const command = new Uint8Array([0x1d, 0x56, 0x01])
+		const result = await parseEscPos(command, makeState())
+		expect(result.data).toEqual({
+			type: 'command',
+			name: 'Cut Paper',
+			details: { command: 'GS V n', cutType: 'Partial' },
+		})
 	})
 })

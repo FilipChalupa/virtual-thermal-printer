@@ -1,100 +1,78 @@
-import { assert } from '@std/assert/mod.ts'
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { readFile } from 'node:fs/promises'
+import { spawn, type ChildProcess } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
 
-Deno.test('web render integration test', async (testContext) => {
-	const httpPort = `${5000 + Math.floor(Math.random() * 1000)}` // Use a random HTTP port for testing
-	const socketPort = `${6000 + Math.floor(Math.random() * 1000)}` // Use a random Socket port for testing
-	const serverCommand = new Deno.Command('deno', {
-		args: [
-			'run',
-			'--allow-net',
-			'--allow-read',
-			'--allow-env',
-			'--allow-write', // Allow write for fixture generation (if needed) or other server operations
-			'main.ts',
-			'--http',
-			httpPort,
-			'--socket',
-			socketPort,
-			'--hostname',
-			'127.0.0.1',
-		],
-		stdout: 'inherit',
-		stderr: 'inherit',
-	})
-	const serverProcess = serverCommand.spawn()
+const __dirname = dirname(fileURLToPath(import.meta.url))
 
-	const baseUrl = `http://127.0.0.1:${httpPort}`
-
-	const waitForServerReady = async (url: string, retries = 10, delay = 500) => {
-		for (let i = 0; i < retries; i++) {
-			try {
-				const response = await fetch(url)
-				if (response.ok) {
-					console.log('Server is ready.')
-					return true
-				}
-			} catch (_e) {
-				// console.log(`Server not ready, retrying... (${i + 1}/${retries})`);
+async function waitForServerReady(url: string, retries = 20, delay = 500) {
+	for (let i = 0; i < retries; i++) {
+		try {
+			const response = await fetch(url)
+			if (response.ok) {
+				return
 			}
-			await new Promise((resolve) => setTimeout(resolve, delay))
+		} catch {
+			// not ready yet
 		}
-		throw new Error('Server did not become ready in time.')
+		await new Promise((resolve) => setTimeout(resolve, delay))
 	}
+	throw new Error('Server did not become ready in time.')
+}
 
-	try {
-		await waitForServerReady(baseUrl)
+describe('web render integration test', () => {
+	let serverProcess: ChildProcess
+	let baseUrl: string
 
-		await testContext.step('should return OK for /health', async () => {
-			const response = await fetch(`${baseUrl}/health`)
-			assert(response.ok, `HTTP error! status: ${response.status}`)
-			const responseText = await response.text()
-			assert(responseText === 'OK', `Expected OK, got ${responseText}`)
-		})
+	beforeAll(async () => {
+		const httpPort = `${5000 + Math.floor(Math.random() * 1000)}`
+		const socketPort = `${6000 + Math.floor(Math.random() * 1000)}`
+		baseUrl = `http://127.0.0.1:${httpPort}`
 
-		await testContext.step('should handle the first ePOS request', async () => {
-			const requestBody1 = await Deno.readTextFile('./fixtures/request1.xml')
-			const response = await fetch(`${baseUrl}/cgi-bin/epos/service.cgi`, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'text/xml',
-				},
-				body: requestBody1,
-			})
-			assert(response.ok, `HTTP error! status: ${response.status}`)
-			const responseText = await response.text()
-			assert(
-				responseText.includes(
-					'<response xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print" success="true"',
-				),
-				'Expected success response',
-			)
-		})
-
-		await testContext.step(
-			'should handle the second ePOS request',
-			async () => {
-				const requestBody2 = await Deno.readTextFile('./fixtures/request2.xml')
-				const response = await fetch(`${baseUrl}/cgi-bin/epos/service.cgi`, {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'text/xml',
-					},
-					body: requestBody2,
-				})
-				assert(response.ok, `HTTP error! status: ${response.status}`)
-				const responseText = await response.text()
-				assert(
-					responseText.includes(
-						'<response xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print" success="true"',
-					),
-					'Expected success response',
-				)
-			},
+		serverProcess = spawn(
+			process.execPath,
+			['--import', 'tsx/esm', join(__dirname, 'main.ts'), '--http', httpPort, '--socket', socketPort],
+			{ stdio: 'inherit' },
 		)
-	} finally {
-		// Small delay to allow the server to shut down cleanly
-		await new Promise((resolve) => setTimeout(resolve, 500))
+
+		await waitForServerReady(`${baseUrl}/health`)
+	}, 30_000)
+
+	afterAll(async () => {
 		serverProcess.kill()
-		await serverProcess.status
-	}
+		await new Promise((resolve) => serverProcess.on('close', resolve))
+	})
+
+	it('should return OK for /health', async () => {
+		const response = await fetch(`${baseUrl}/health`)
+		expect(response.ok).toBe(true)
+		expect(await response.text()).toBe('OK')
+	})
+
+	it('should handle the first ePOS request', async () => {
+		const requestBody = await readFile(join(__dirname, 'fixtures/request1.xml'), 'utf-8')
+		const response = await fetch(`${baseUrl}/cgi-bin/epos/service.cgi`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'text/xml' },
+			body: requestBody,
+		})
+		expect(response.ok).toBe(true)
+		expect(await response.text()).toContain(
+			'<response xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print" success="true"',
+		)
+	})
+
+	it('should handle the second ePOS request', async () => {
+		const requestBody = await readFile(join(__dirname, 'fixtures/request2.xml'), 'utf-8')
+		const response = await fetch(`${baseUrl}/cgi-bin/epos/service.cgi`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'text/xml' },
+			body: requestBody,
+		})
+		expect(response.ok).toBe(true)
+		expect(await response.text()).toContain(
+			'<response xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print" success="true"',
+		)
+	})
 })
