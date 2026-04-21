@@ -5,9 +5,9 @@
 	"type": "module",
 	"scripts": {
 		"start": "tsx --conditions=source main.ts",
-		"dev": "npm run build && concurrently \"npm run build:watch\" \"tsx --conditions=source watch main.ts --http 8000\"",
+		"dev": "npm run build && concurrently \"npm run build:watch\" \"tsx watch --conditions=source main.ts --http 8000\"",
 		"build": "tsx --conditions=source scripts/build.ts --production",
-		"build:watch": "tsx --conditions=source watch scripts/build.ts",
+		"build:watch": "tsx watch --conditions=source scripts/build.ts",
 		"test": "vitest run",
 		"version:bump": "tsx --conditions=source scripts/version.ts"
 	},

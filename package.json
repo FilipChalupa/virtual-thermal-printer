@@ -6,6 +6,7 @@
 	],
 	"scripts": {
 		"build": "npm run build --workspace=packages/escpos-decoder && npm run build --workspace=packages/virtual-thermal-printer",
+		"dev": "npm run dev --workspace=packages/virtual-thermal-printer",
 		"test": "npm run test --workspaces --if-present"
 	}
 }
