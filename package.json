@@ -1,0 +1,29 @@
+{
+	"name": "virtual-thermal-printer",
+	"version": "0.0.27",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"start": "tsx main.ts",
+		"dev": "npm run build && concurrently \"npm run build:watch\" \"tsx watch main.ts --http 8000\"",
+		"build": "tsx scripts/build.ts --production",
+		"build:watch": "tsx watch scripts/build.ts",
+		"test": "vitest run",
+		"version:bump": "tsx scripts/version.ts"
+	},
+	"dependencies": {
+		"@hono/node-server": "^1.13.7",
+		"hono": "^4.6.5",
+		"iconv-lite": "^0.6.3",
+		"pngjs": "^7.0.0"
+	},
+	"devDependencies": {
+		"@types/node": "^22.10.2",
+		"@types/pngjs": "^6.0.5",
+		"concurrently": "^9.1.2",
+		"esbuild": "^0.24.2",
+		"tsx": "^4.19.2",
+		"typescript": "^5.7.3",
+		"vitest": "^2.1.8"
+	}
+}

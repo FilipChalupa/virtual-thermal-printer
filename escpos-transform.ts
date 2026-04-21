@@ -1,8 +1,6 @@
 import iconv from 'iconv-lite'
-import { Buffer } from '@std/io/buffer'
-import { Image } from 'imagescript'
-import { encodeBase64 } from '@std/encoding/base64'
-import { Alignment, EscPosText, ParsedEscPosBlock } from './shared/types.ts'
+import { PNG } from 'pngjs'
+import { Alignment, EscPosText, ParsedEscPosBlock } from './shared/types.js'
 
 export interface PrinterState {
 	alignment: Alignment
@@ -20,14 +18,36 @@ export interface ParsedCommandResult {
 	consumedBytes: number
 }
 
-// Helper function to convert 1-bit per pixel image data to RGBA
+class AccumulatingBuffer {
+	#data = new Uint8Array(0)
+
+	get length(): number {
+		return this.#data.length
+	}
+
+	writeSync(chunk: Uint8Array): void {
+		const merged = new Uint8Array(this.#data.length + chunk.length)
+		merged.set(this.#data)
+		merged.set(chunk, this.#data.length)
+		this.#data = merged
+	}
+
+	bytes(): Uint8Array {
+		return this.#data
+	}
+
+	constructor(initial?: Uint8Array) {
+		if (initial) this.#data = initial
+	}
+}
+
 function convert1BitToRgba(
 	oneBitData: Uint8Array,
-	rawWidth: number, // width in bytes
+	rawWidth: number,
 	height: number,
 ): Uint8ClampedArray {
-	const width = rawWidth * 8 // actual pixel width
-	const rgbaData = new Uint8ClampedArray(width * height * 4) // 4 bytes per pixel (RGBA)
+	const width = rawWidth * 8
+	const rgbaData = new Uint8ClampedArray(width * height * 4)
 
 	let oneBitDataIndex = 0
 	for (let y = 0; y < height; y++) {
@@ -35,20 +55,16 @@ function convert1BitToRgba(
 			const byte = oneBitData[oneBitDataIndex++]
 			for (let bit = 0; bit < 8; bit++) {
 				const x = xByte * 8 + bit
-				if (x >= width) {
-					continue
-				}
+				if (x >= width) continue
 
 				const rgbaIndex = (y * width + x) * 4
-				const isBlack = (byte >> (7 - bit)) & 0x01 // Read bit from MSB to LSB
-
-				// Monochrome: Black for 1, White for 0 (inverted for typical display)
+				const isBlack = (byte >> (7 - bit)) & 0x01
 				const color = isBlack ? 0 : 255
 
-				rgbaData[rgbaIndex] = color // R
-				rgbaData[rgbaIndex + 1] = color // G
-				rgbaData[rgbaIndex + 2] = color // B
-				rgbaData[rgbaIndex + 3] = 255 // A (fully opaque)
+				rgbaData[rgbaIndex] = color
+				rgbaData[rgbaIndex + 1] = color
+				rgbaData[rgbaIndex + 2] = color
+				rgbaData[rgbaIndex + 3] = 255
 			}
 		}
 	}
@@ -69,7 +85,7 @@ export async function parseEscPos(
 
 	const createTextBlock = (state: PrinterState): EscPosText | null => {
 		if (textBuffer.length > 0) {
-			const content = iconv.decode(new Uint8Array(textBuffer), 'CP852')
+			const content = iconv.decode(Buffer.from(textBuffer), 'CP852')
 			textBuffer = []
 			return {
 				type: 'text',
@@ -287,7 +303,7 @@ export async function parseEscPos(
 							return { data: null, consumedBytes: 0 }
 						}
 						break
-					case 0x69: // i - Full cut (common implementation for some printers)
+					case 0x69: // i - Full cut
 						parsedBlock = {
 							type: 'command',
 							name: 'Cut Paper',
@@ -322,21 +338,20 @@ export async function parseEscPos(
 						}
 						break
 					case 0x2a: // * - Bit image
-						if (command.length >= 5) { // ESC * m nL nH
+						if (command.length >= 5) {
 							const m = command[2]
 							const nL = command[3]
 							const nH = command[4]
 							const widthDots = nL + nH * 256
 
 							let bytesPerSlice = 1
-							if (m === 32 || m === 33) { // 24-dot
+							if (m === 32 || m === 33) {
 								bytesPerSlice = 3
 							}
 
 							const expectedDataSize = widthDots * bytesPerSlice
 
 							if (command.length >= 5 + expectedDataSize) {
-								// Just consume the command for now, don't render.
 								parsedBlock = {
 									type: 'command',
 									name: 'Bit Image (ESC *)',
@@ -344,10 +359,10 @@ export async function parseEscPos(
 								}
 								consumedBytes = 5 + expectedDataSize
 							} else {
-								return { data: null, consumedBytes: 0 } // Not enough data
+								return { data: null, consumedBytes: 0 }
 							}
 						} else {
-							return { data: null, consumedBytes: 0 } // Not enough header
+							return { data: null, consumedBytes: 0 }
 						}
 						break
 					default:
@@ -445,10 +460,11 @@ export async function parseEscPos(
 										height,
 									)
 									const pixelWidth = rawWidth * 8
-									const image = new Image(pixelWidth, height)
-									image.bitmap = rgbaData
-									const pngBuffer = await image.encode()
-									const base64 = encodeBase64(pngBuffer)
+
+									const png = new PNG({ width: pixelWidth, height: height })
+									Buffer.from(rgbaData.buffer).copy(png.data)
+									const pngBuffer = PNG.sync.write(png)
+									const base64 = pngBuffer.toString('base64')
 
 									parsedBlock = {
 										type: 'image',
@@ -564,7 +580,7 @@ export async function parseEscPos(
 							name: 'Unknown FS Command',
 							details: { byte: nextByte },
 						}
-						consumedBytes = 2 // Assume 2 bytes for now
+						consumedBytes = 2
 						break
 				}
 			} else {
@@ -576,17 +592,13 @@ export async function parseEscPos(
 	return { data: parsedBlock, consumedBytes: consumedBytes }
 }
 
-/**
- * A Transformer that parses incoming Uint8Array chunks of ESC/POS commands
- * into structured EscPosBlock objects.
- */
 export class EscPosTransformer
 	implements Transformer<Uint8Array, ParsedEscPosBlock> {
-	#accumulatedBuffer: Buffer
+	#accumulatedBuffer: AccumulatingBuffer
 	#printerState: PrinterState
 
 	constructor() {
-		this.#accumulatedBuffer = new Buffer()
+		this.#accumulatedBuffer = new AccumulatingBuffer()
 		this.#printerState = {
 			alignment: Alignment.Left,
 			charWidth: 1,
@@ -603,7 +615,6 @@ export class EscPosTransformer
 		chunk: Uint8Array,
 		controller: TransformStreamDefaultController<ParsedEscPosBlock>,
 	) {
-		// Write newly read data to the accumulated buffer
 		this.#accumulatedBuffer.writeSync(chunk)
 
 		while (true) {
@@ -616,22 +627,17 @@ export class EscPosTransformer
 				if (parsedResult.data) {
 					controller.enqueue(parsedResult.data)
 				}
-				// Remove consumed bytes from the accumulated buffer
 				const remainingBytes = this.#accumulatedBuffer.bytes().subarray(
 					parsedResult.consumedBytes,
 				)
-				this.#accumulatedBuffer = new Buffer(remainingBytes)
+				this.#accumulatedBuffer = new AccumulatingBuffer(remainingBytes)
 			} else {
-				// No complete command parsed, wait for more data
 				break
 			}
 		}
 	}
 
-	// The flush method is called when the input stream is closed.
-	// It allows processing any remaining buffered data.
 	async flush(controller: TransformStreamDefaultController<ParsedEscPosBlock>) {
-		// Attempt to parse any remaining data in the buffer
 		while (this.#accumulatedBuffer.length > 0) {
 			const parsedResult = await parseEscPos(
 				this.#accumulatedBuffer.bytes(),
@@ -645,12 +651,8 @@ export class EscPosTransformer
 				const remainingBytes = this.#accumulatedBuffer.bytes().subarray(
 					parsedResult.consumedBytes,
 				)
-				this.#accumulatedBuffer = new Buffer(remainingBytes)
+				this.#accumulatedBuffer = new AccumulatingBuffer(remainingBytes)
 			} else {
-				// If there's still unparsed data, but parseEscPos couldn't make progress,
-				// it means there's an incomplete command at the end of the stream.
-				// We could choose to error here, or emit a special 'partial' event.
-				// For now, we'll just stop trying to parse.
 				if (this.#accumulatedBuffer.length > 0) {
 					console.warn(
 						`Incomplete ESC/POS command(s) at end of stream. Remaining bytes: ${this.#accumulatedBuffer.length}`,

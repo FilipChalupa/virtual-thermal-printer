@@ -1,7 +1,8 @@
+import { Readable } from 'node:stream'
+import type { Socket } from 'node:net'
 import {
 	EscPosTransformer,
-	PrinterState as _PrinterState,
-} from './escpos-transform.ts'
+} from './escpos-transform.js'
 
 const HTTP_METHODS = [
 	'GET ',
@@ -13,7 +14,7 @@ const HTTP_METHODS = [
 	'CONNECT ',
 	'TRACE ',
 	'PATCH ',
-	'PRI ', // HTTP/2
+	'PRI ',
 ].map((method) => new TextEncoder().encode(method))
 
 const TLS_HANDSHAKE = new Uint8Array([0x16, 0x03])
@@ -23,7 +24,6 @@ function isProbe(chunk: Uint8Array): boolean {
 		return false
 	}
 
-	// Check for HTTP methods
 	for (const method of HTTP_METHODS) {
 		if (chunk.length >= method.length) {
 			let match = true
@@ -39,14 +39,12 @@ function isProbe(chunk: Uint8Array): boolean {
 		}
 	}
 
-	// Check for TLS handshake
 	if (chunk.length >= TLS_HANDSHAKE.length) {
 		if (chunk[0] === TLS_HANDSHAKE[0] && chunk[1] === TLS_HANDSHAKE[1]) {
 			return true
 		}
 	}
 
-	// Check for null bytes at the start, often used by scanners
 	if (chunk.length >= 2 && chunk[0] === 0x00 && chunk[1] === 0x00) {
 		return true
 	}
@@ -65,7 +63,6 @@ class ProbeFilterTransformer implements Transformer<Uint8Array, Uint8Array> {
 			this.#firstChunkChecked = true
 			if (isProbe(chunk)) {
 				console.log('Probe detected, ignoring connection.')
-				// Probe detected, stop processing this stream
 				controller.terminate()
 				return
 			}
@@ -75,16 +72,13 @@ class ProbeFilterTransformer implements Transformer<Uint8Array, Uint8Array> {
 }
 
 export async function processEscPosStream(
-	// deno-lint-ignore no-explicit-any
-	stream: ReadableStream<any>,
-	// deno-lint-ignore no-explicit-any
+	stream: ReadableStream<Uint8Array>,
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	connectedClients: Set<any>,
 ) {
-	// Create an instance of the TransformStream
 	const escPosTransformer = new TransformStream(new EscPosTransformer())
 
 	try {
-		// Pipe the incoming connection stream through the ESC/POS transformer
 		const parsedBlocks = stream.pipeThrough(escPosTransformer)
 
 		const reader = parsedBlocks.getReader()
@@ -107,18 +101,19 @@ export async function processEscPosStream(
 }
 
 export async function handleConnection(
-	connection: Deno.Conn, // deno-lint-ignore no-explicit-any
+	socket: Socket,
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	connectedClients: Set<any>,
 ) {
-	const remoteAddress = connection.remoteAddr
-	const remoteAddressString = remoteAddress.transport === 'tcp'
-		? `${remoteAddress.hostname}:${remoteAddress.port}`
+	const remoteAddressString = socket.remoteAddress && socket.remotePort
+		? `${socket.remoteAddress}:${socket.remotePort}`
 		: 'unknown'
 	console.log(`New connection from ${remoteAddressString}.`)
 
 	try {
+		const readable = Readable.toWeb(socket) as ReadableStream<Uint8Array>
 		await processEscPosStream(
-			connection.readable.pipeThrough(
+			readable.pipeThrough(
 				new TransformStream(new ProbeFilterTransformer()),
 			),
 			connectedClients,
@@ -132,9 +127,9 @@ export async function handleConnection(
 		}
 	} finally {
 		try {
-			connection.close()
+			socket.destroy()
 		} catch (_error) {
-			// Connection might already be closed
+			// Socket might already be closed
 		}
 	}
 

@@ -1,23 +1,30 @@
 import { Hono } from 'hono'
+import type { Context } from 'hono'
 import { cors } from 'hono/cors'
-import { serveStatic, upgradeWebSocket } from 'hono/deno'
-import { parseArgs } from '@std/cli/parse-args'
-import { handleConnection, processEscPosStream } from './escpos.ts'
+import { serve } from '@hono/node-server'
+import type { AddressInfo } from 'node:net'
+import { serveStatic } from '@hono/node-server/serve-static'
+import { createNodeWebSocket } from '@hono/node-server/ws'
+import { parseArgs } from 'node:util'
+import { readFileSync } from 'node:fs'
+import { createServer } from 'node:net'
+import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
+import { handleConnection, processEscPosStream } from './escpos.js'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
 
 const appVersion = (() => {
 	try {
-		const denoConfig = JSON.parse(
-			Deno.readTextFileSync(`${import.meta.dirname}/deno.json`),
+		const pkgJson = JSON.parse(
+			readFileSync(join(__dirname, 'package.json'), 'utf-8'),
 		)
-		if (denoConfig) {
-			const { version } = denoConfig
-			if (typeof version === 'string') {
-				return version
-			}
+		if (typeof pkgJson.version === 'string') {
+			return pkgJson.version
 		}
 	} catch (event) {
 		console.error(
-			'Failed to read app version from deno.json:',
+			'Failed to read app version from package.json:',
 			event instanceof Error ? event.message : event,
 		)
 	}
@@ -25,9 +32,12 @@ const appVersion = (() => {
 })()
 console.log(`App version: ${appVersion}`)
 
-const flags = parseArgs(Deno.args, {
-	string: ['http', 'socket'],
-	default: { 'http': '80', 'socket': '9100' },
+const { values: flags } = parseArgs({
+	args: process.argv.slice(2),
+	options: {
+		http: { type: 'string', default: '80' },
+		socket: { type: 'string', default: '9100' },
+	},
 })
 
 function validatePort(portValue: string | number, portName: string): number {
@@ -38,10 +48,11 @@ function validatePort(portValue: string | number, portName: string): number {
 	return port
 }
 
-const httpPort = validatePort(flags['http'], 'HTTP')
-const socketPort = validatePort(flags['socket'], 'Socket')
+const httpPort = validatePort(flags['http'] ?? '80', 'HTTP')
+const socketPort = validatePort(flags['socket'] ?? '9100', 'Socket')
 
 const app = new Hono()
+const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app })
 
 app.get('/health', (context) => context.text('OK'))
 
@@ -75,73 +86,59 @@ app.post(eposEndpoint, async (context) => {
 		{ 'Content-Type': 'text/xml' },
 	)
 })
-// deno-lint-ignore no-explicit-any
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const connectedClients = new Set<any>()
 
 app.get(
 	'/stream',
-	upgradeWebSocket((_c) => {
+	upgradeWebSocket((_c: Context) => {
 		return {
-			onOpen: (
-				_evt, // deno-lint-ignore no-explicit-any
-				ws: any,
-			) => {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			onOpen: (_evt: any, ws: any) => {
 				console.log('WebSocket opened.')
 				connectedClients.add(ws)
 			},
-			onMessage: (
-				_evt, // deno-lint-ignore no-explicit-any
-				_ws: any,
-			) => {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			onMessage: (_evt: any, _ws: any) => {
 				// Do nothing for now
 			},
-			onClose: (
-				_evt, // deno-lint-ignore no-explicit-any
-				ws: any,
-			) => {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			onClose: (_evt: any, ws: any) => {
 				console.log('WebSocket closed.')
 				connectedClients.delete(ws)
 			},
-			onError: (
-				evt, // deno-lint-ignore no-explicit-any
-				ws: any,
-			) => {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			onError: (evt: any, ws: any) => {
 				console.log('WebSocket error:', (evt as ErrorEvent).message)
 				connectedClients.delete(ws)
 			},
 		}
 	}),
 )
+
 app.use(
 	'/*',
-	serveStatic({
-		root: `${import.meta.dirname}/dist`,
-	}),
+	serveStatic({ root: join(__dirname, 'dist') }),
 )
 
-Deno.serve(
+const server = serve(
 	{
+		fetch: app.fetch,
 		port: httpPort,
 		hostname: '0.0.0.0',
-		onListen(localAddress) {
-			console.log(
-				`Listening to HTTP on http://${localAddress.hostname}:${localAddress.port}.`,
-			)
-		},
 	},
-	app.fetch,
+	(info: AddressInfo) => {
+		console.log(
+			`Listening to HTTP on http://${info.address}:${info.port}.`,
+		)
+	},
 )
+injectWebSocket(server)
 
-if (!Deno.env.get('DENO_DEPLOYMENT_ID')) {
-	const escposListener = Deno.listen({
-		port: socketPort,
-		hostname: '0.0.0.0',
-	})
+const escposServer = createServer((socket) => {
+	handleConnection(socket, connectedClients)
+})
+escposServer.listen(socketPort, '0.0.0.0', () => {
 	console.log(`Listening to Socket on port ${socketPort}.`)
-
-	for await (const conn of escposListener) {
-		;(async () => {
-			await handleConnection(conn, connectedClients)
-		})()
-	}
-}
+})
