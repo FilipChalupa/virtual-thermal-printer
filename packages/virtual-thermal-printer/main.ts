@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import { isSea, getAsset } from 'node:sea'
 import { handleConnection, processEscPosStream } from './escpos.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -86,8 +87,36 @@ app.post(eposEndpoint, async (context) => {
 	)
 })
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-app.use('/*', serveStatic({ root: join(__dirname, 'dist') }) as any)
+if (isSea()) {
+	const mimeTypes: Record<string, string> = {
+		html: 'text/html; charset=utf-8',
+		js: 'application/javascript',
+		css: 'text/css',
+		png: 'image/png',
+		mp3: 'audio/mpeg',
+		json: 'application/json',
+		webmanifest: 'application/manifest+json',
+		map: 'application/json',
+	}
+	app.use('/*', (context) => {
+		const assetKey = context.req.path.replace(/^\//, '') || 'index.html'
+		const ext = assetKey.split('.').pop() ?? ''
+		try {
+			const data = getAsset(assetKey) as ArrayBuffer
+			return context.body(data, 200, { 'Content-Type': mimeTypes[ext] ?? 'application/octet-stream' })
+		} catch {
+			try {
+				const data = getAsset('index.html') as ArrayBuffer
+				return context.body(data, 200, { 'Content-Type': 'text/html; charset=utf-8' })
+			} catch {
+				return context.text('Not found', 404)
+			}
+		}
+	})
+} else {
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	app.use('/*', serveStatic({ root: join(__dirname, 'dist') }) as any)
+}
 
 const connectedClients = new Set<WebSocket>()
 

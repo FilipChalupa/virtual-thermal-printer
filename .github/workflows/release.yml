@@ -13,14 +13,11 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            binary: virtual-thermal-printer
-            archive: virtual-thermal-printer-linux.tar.gz
+            binary: virtual-thermal-printer-linux
           - os: macos-latest
-            binary: virtual-thermal-printer
-            archive: virtual-thermal-printer-macos.tar.gz
+            binary: virtual-thermal-printer-macos
           - os: windows-latest
-            binary: virtual-thermal-printer.exe
-            archive: virtual-thermal-printer-windows.zip
+            binary: virtual-thermal-printer-windows.exe
 
     steps:
       - uses: actions/checkout@v4
@@ -69,22 +66,11 @@ jobs:
         working-directory: packages/virtual-thermal-printer
         run: codesign --sign - ${{ matrix.binary }}
 
-      - name: Create archive (Linux / macOS)
-        if: runner.os != 'Windows'
-        working-directory: packages/virtual-thermal-printer
-        run: tar -czf ${{ matrix.archive }} ${{ matrix.binary }} dist
-
-      - name: Create archive (Windows)
-        if: runner.os == 'Windows'
-        working-directory: packages/virtual-thermal-printer
-        shell: pwsh
-        run: Compress-Archive -Path ${{ matrix.binary }}, dist -DestinationPath ${{ matrix.archive }}
-
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.archive }}
-          path: packages/virtual-thermal-printer/${{ matrix.archive }}
+          name: ${{ matrix.binary }}
+          path: packages/virtual-thermal-printer/${{ matrix.binary }}
 
   release:
     name: Create GitHub Release
