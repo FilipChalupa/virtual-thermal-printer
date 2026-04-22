@@ -61,9 +61,18 @@ echo -e "\x1b\x40Hello\x0a" | nc localhost 9100
 ## Docker
 
 ```bash
-docker build -t virtual-thermal-printer .
-docker run -p 8000:80 -p 9100:9100 virtual-thermal-printer
+npm run docker:build
+npm run docker:start
 ```
+
+Or manually:
+
+```bash
+docker build -t virtual-thermal-printer .
+docker run --rm -p 8000:80 -p 9100:9100 virtual-thermal-printer
+```
+
+The web UI is available at `http://localhost:8000` and the TCP socket on port `9100`.
 
 ## Scripts
 
@@ -72,3 +81,5 @@ docker run -p 8000:80 -p 9100:9100 virtual-thermal-printer
 | `npm run dev` | Start dev server with hot reload on port 8000 |
 | `npm run build` | Build `escpos-decoder` and the frontend |
 | `npm test` | Run all tests across all packages |
+| `npm run docker:build` | Build Docker image |
+| `npm run docker:start` | Run Docker container |
