@@ -30,6 +30,12 @@ npm run dev
 
 The server starts at `http://localhost:8000` and listens for raw ESC/POS on TCP port `9100`.
 
+Both ports can be overridden:
+
+```bash
+./virtual-thermal-printer-linux --http 8080 --socket 9100
+```
+
 ## Sending Print Commands
 
 > [!WARNING]
