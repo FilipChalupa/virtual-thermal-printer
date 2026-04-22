@@ -217,3 +217,11 @@ function connectWebSocket(): void {
 
 // Initial connection
 connectWebSocket()
+
+fetch('/version')
+	.then((r) => r.text())
+	.then((v) => {
+		const el = document.getElementById('version')
+		if (el) el.textContent = `v${v}`
+	})
+	.catch(() => {})

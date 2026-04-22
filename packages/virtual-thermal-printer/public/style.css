@@ -97,3 +97,12 @@ h1 {
 	border-top: 1px dashed black;
 	margin: 10px 0;
 }
+
+#version {
+	position: fixed;
+	bottom: 8px;
+	right: 10px;
+	font-size: 0.7rem;
+	opacity: 0.35;
+	pointer-events: none;
+}
