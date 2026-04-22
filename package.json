@@ -1,0 +1,19 @@
+{
+	"name": "virtual-thermal-printer-monorepo",
+	"private": true,
+	"workspaces": [
+		"packages/*"
+	],
+	"engines": {
+		"node": ">=22"
+	},
+	"scripts": {
+		"build": "npm run build --workspace=packages/escpos-decoder && npm run build --workspace=packages/virtual-thermal-printer",
+		"dev": "npm run dev --workspace=packages/virtual-thermal-printer",
+		"version:bump": "npm run version:bump --workspace=packages/virtual-thermal-printer",
+		"docker:build": "docker build -t virtual-thermal-printer .",
+		"docker:start": "docker run --rm -p 8000:80 -p 9100:9100 virtual-thermal-printer",
+		"sea:bundle": "npm run build --workspace=packages/escpos-decoder && npm run sea:bundle --workspace=packages/virtual-thermal-printer",
+		"test": "npm run test --workspaces --if-present"
+	}
+}

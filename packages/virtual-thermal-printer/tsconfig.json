@@ -1,0 +1,10 @@
+{
+	"extends": "../../tsconfig.json",
+	"compilerOptions": {
+		"paths": {
+			"escpos-decoder": ["../escpos-decoder/src/index.ts"],
+			"escpos-decoder/types": ["../escpos-decoder/src/types.ts"]
+		}
+	},
+	"exclude": ["node_modules", "dist"]
+}
