@@ -9,6 +9,7 @@
 		"build": "tsx --conditions=source scripts/build.ts --production",
 		"build:watch": "tsx watch --conditions=source scripts/build.ts",
 		"test": "vitest run",
+		"sea:bundle": "tsx scripts/sea.ts",
 		"version:bump": "tsx --conditions=source scripts/version.ts"
 	},
 	"dependencies": {

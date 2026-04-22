@@ -6,67 +6,136 @@ on:
       - 'v*'
 
 jobs:
-  build:
-    name: Build on ${{ matrix.os }}
+  binary:
+    name: Build binary on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
         include:
           - os: ubuntu-latest
-            asset_name: virtual-thermal-printer-linux
+            binary: virtual-thermal-printer
+            archive: virtual-thermal-printer-linux.tar.gz
           - os: macos-latest
-            asset_name: virtual-thermal-printer-macos
+            binary: virtual-thermal-printer
+            archive: virtual-thermal-printer-macos.tar.gz
           - os: windows-latest
-            asset_name: virtual-thermal-printer-windows.exe
+            binary: virtual-thermal-printer.exe
+            archive: virtual-thermal-printer-windows.zip
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
-      - name: Setup Deno
-        uses: denoland/setup-deno@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
 
-      - name: Compile application
-        run: deno task compile
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Rename executable
-        run: mv virtual-thermal-printer ${{ matrix.asset_name }}
-        if: matrix.os != 'windows-latest'
+      - name: Build
+        run: npm run build
 
-      - name: Rename executable (Windows)
-        run: mv virtual-thermal-printer.exe ${{ matrix.asset_name }}
-        if: matrix.os == 'windows-latest'
+      - name: Create SEA bundle
+        working-directory: packages/virtual-thermal-printer
+        run: npm run sea:bundle
+
+      - name: Create SEA blob
+        working-directory: packages/virtual-thermal-printer
+        run: node --experimental-sea-config sea-config.json
+
+      - name: Copy node binary (Linux / macOS)
+        if: runner.os != 'Windows'
+        working-directory: packages/virtual-thermal-printer
+        run: cp $(node -e "process.stdout.write(process.execPath)") ${{ matrix.binary }}
+
+      - name: Copy node binary (Windows)
+        if: runner.os == 'Windows'
+        working-directory: packages/virtual-thermal-printer
+        shell: pwsh
+        run: Copy-Item (node -e "process.stdout.write(process.execPath)") ${{ matrix.binary }}
+
+      - name: Remove macOS signature
+        if: runner.os == 'macOS'
+        working-directory: packages/virtual-thermal-printer
+        run: codesign --remove-signature ${{ matrix.binary }}
+
+      - name: Inject SEA blob
+        working-directory: packages/virtual-thermal-printer
+        run: npx postject ${{ matrix.binary }} NODE_SEA_BLOB sea-prep.blob --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2
+
+      - name: Sign binary (macOS)
+        if: runner.os == 'macOS'
+        working-directory: packages/virtual-thermal-printer
+        run: codesign --sign - ${{ matrix.binary }}
+
+      - name: Create archive (Linux / macOS)
+        if: runner.os != 'Windows'
+        working-directory: packages/virtual-thermal-printer
+        run: tar -czf ${{ matrix.archive }} ${{ matrix.binary }} dist
+
+      - name: Create archive (Windows)
+        if: runner.os == 'Windows'
+        working-directory: packages/virtual-thermal-printer
+        shell: pwsh
+        run: Compress-Archive -Path ${{ matrix.binary }}, dist -DestinationPath ${{ matrix.archive }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.asset_name }}
-          path: ${{ matrix.asset_name }}
+          name: ${{ matrix.archive }}
+          path: packages/virtual-thermal-printer/${{ matrix.archive }}
+
+  docker:
+    name: Build and push Docker image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+            ghcr.io/${{ github.repository }}:latest
 
   release:
-    name: Create Release
+    name: Create GitHub Release
     runs-on: ubuntu-latest
-    needs: build
+    needs: [binary, docker]
     permissions:
       contents: write
+
     steps:
-      - name: Get tag
-        id: tag
-        uses: dawidd6/action-get-tag@v1
+      - uses: actions/checkout@v4
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
 
-      - name: Create Release and Upload Assets
+      - name: Create release
         run: |
-          gh release create ${{ steps.tag.outputs.tag }} \
+          gh release create ${{ github.ref_name }} \
             --repo ${{ github.repository }} \
-            --target ${{ github.sha }} \
-            --title "Release ${{ steps.tag.outputs.tag }}" \
-            --notes "" \
+            --title "Release ${{ github.ref_name }}" \
+            --generate-notes \
             artifacts/*/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
