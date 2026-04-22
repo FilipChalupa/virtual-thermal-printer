@@ -6,68 +6,69 @@ printer. This tool is designed for developers who need to test point-of-sale
 
 ## Features
 
-- **Epson EPOS Support:** Receives and processes Epson EPOS commands via an HTTP
-  endpoint.
-- **ESC/POS Support:** Receives and processes raw ESC/POS commands via a TCP
-  socket.
-- **Web-Based Rendering:** Renders the print output in a real-time web
-  interface.
+- **Epson EPOS Support:** Receives and processes Epson EPOS commands via an HTTP endpoint.
+- **ESC/POS Support:** Receives and processes raw ESC/POS commands via a TCP socket.
+- **Web-Based Rendering:** Renders the print output in a real-time web interface.
 
-## How to Use
+## Packages
 
-### Web Interface
+| Package | Description |
+|---|---|
+| [`escpos-decoder`](packages/escpos-decoder) | Transforms a stream of raw ESC/POS bytes into typed TypeScript blocks |
+| [`virtual-thermal-printer`](packages/virtual-thermal-printer) | HTTP + WebSocket + TCP server with browser UI |
 
-You can view the rendered output of the virtual printer by visiting the
-production URL:
+## Local Development
 
-[https://virtual-thermal-printer.deno.dev/](https://virtual-thermal-printer.deno.dev/)
+Requires [Node.js](https://nodejs.org/) 22+.
+
+```bash
+git clone https://github.com/FilipChalupa/virtual-thermal-printer.git
+cd virtual-thermal-printer
+npm install
+npm run dev
+```
+
+The server starts at `http://localhost:8000` and listens for raw ESC/POS on TCP port `9100`.
+
+## Sending Print Commands
 
 > [!WARNING]
 > The public server is shared among all users. Any print jobs you send will be
 > visible to anyone currently viewing the page.
 
-### Sending Print Commands
+### Epson EPOS (HTTP)
 
 > [!WARNING]
-> The public server
-> ([virtual-thermal-printer.deno.dev](https://virtual-thermal-printer.deno.dev/))
-> only supports Epson EPOS commands via HTTP. Raw ESC/POS commands over TCP are
-> **not** supported on the public server and must be used with a locally running
-> instance.
-
-#### Epson EPOS (HTTP)
-
-You can send Epson EPOS commands to the `/cgi-bin/epos/service.cgi` endpoint
-using a `POST` request. Here's an example using `curl` with one of the provided
-fixtures:
+> The public server only supports Epson EPOS commands via HTTP. Raw ESC/POS
+> commands over TCP are **not** supported on the public server and must be used
+> with a locally running instance.
 
 ```bash
 curl -X POST \
   -H "Content-Type: text/xml" \
-  --data @fixtures/request1.xml \
-  https://virtual-thermal-printer.deno.dev/cgi-bin/epos/service.cgi
+  --data @packages/virtual-thermal-printer/fixtures/request1.xml \
+  http://localhost:8000/cgi-bin/epos/service.cgi
 ```
 
-#### ESC/POS (TCP Socket)
+### ESC/POS (TCP Socket)
 
-You can send raw ESC/POS commands by connecting to the server on port `9100`.
-You can use tools like `netcat` or `telnet` to send commands.
+Connect to port `9100` and send raw ESC/POS bytes, e.g. via `netcat`:
 
-### Local Development
+```bash
+echo -e "\x1b\x40Hello\x0a" | nc localhost 9100
+```
 
-To run the Virtual Thermal Printer locally, you'll need to have
-[Deno](https://deno.land/) installed.
+## Docker
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/FilipChalupa/virtual-thermal-printer.git
-   cd virtual-thermal-printer
-   ```
+```bash
+docker build -t virtual-thermal-printer .
+docker run -p 8000:80 -p 9100:9100 virtual-thermal-printer
+```
 
-2. **Start the application:**
-   ```bash
-   deno task dev
-   ```
+## Scripts
 
-   This will start the server on `http://localhost:8000` and the TCP socket
-   listener on port `9100`.
+| Command | Description |
+|---|---|
+| `npm run dev` | Start dev server with hot reload on port 8000 |
+| `npm run build` | Build `escpos-decoder` and the frontend |
+| `npm test` | Run all tests across all packages |

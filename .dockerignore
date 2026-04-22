@@ -1,7 +1,10 @@
 .git
 .github
 .vscode
-dist
-fixtures
+node_modules
+packages/*/node_modules
+**/dist
+**/sea-bundle.cjs
+**/sea-prep.blob
 README.md
 test-epos-print-request.sh
