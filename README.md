@@ -74,6 +74,21 @@ docker run --rm -p 8000:80 -p 9100:9100 virtual-thermal-printer
 
 The web UI is available at `http://localhost:8000` and the TCP socket on port `9100`.
 
+## Releasing
+
+1. Bump the version and create a git tag:
+   ```bash
+   npm run version:bump              # patch (0.0.x)
+   npm run version:bump -- --part=minor  # minor (0.x.0)
+   npm run version:bump -- --part=major  # major (x.0.0)
+   ```
+2. Push the tag to trigger the release workflow:
+   ```bash
+   git push && git push --tags
+   ```
+
+GitHub Actions then builds platform binaries (Linux, macOS, Windows) and a Docker image, and creates a GitHub Release.
+
 ## Scripts
 
 | Command | Description |
@@ -83,3 +98,4 @@ The web UI is available at `http://localhost:8000` and the TCP socket on port `9
 | `npm test` | Run all tests across all packages |
 | `npm run docker:build` | Build Docker image |
 | `npm run docker:start` | Run Docker container |
+| `npm run version:bump` | Bump patch version, commit and tag |
