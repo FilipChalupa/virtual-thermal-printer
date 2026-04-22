@@ -7,7 +7,7 @@
 		"node": ">=22"
 	},
 	"scripts": {
-		"start": "tsx --conditions=source main.ts",
+		"start": "tsx main.ts",
 		"dev": "npm run build && concurrently \"npm run build:watch\" \"tsx watch --conditions=source main.ts --http 8000\"",
 		"build": "tsx --conditions=source scripts/build.ts --production",
 		"build:watch": "tsx watch --conditions=source scripts/build.ts",
