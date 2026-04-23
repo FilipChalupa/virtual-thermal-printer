@@ -11,7 +11,10 @@ await esbuild.build({
 	define: {
 		// In CJS SEA context import.meta is unavailable — remap to __filename which
 		// Node.js SEA sets to the binary path.
-		'import.meta.url': "require('url').pathToFileURL(__filename).href",
+		'import.meta.url': '__importMetaUrl',
+	},
+	banner: {
+		js: "var __importMetaUrl = require('url').pathToFileURL(__filename).href;",
 	},
 })
 
