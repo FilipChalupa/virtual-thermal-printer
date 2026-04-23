@@ -8,6 +8,11 @@ await esbuild.build({
 	platform: 'node',
 	format: 'cjs',
 	outfile: 'sea-bundle.cjs',
+	define: {
+		// In CJS SEA context import.meta is unavailable — remap to __filename which
+		// Node.js SEA sets to the binary path.
+		'import.meta.url': "require('url').pathToFileURL(__filename).href",
+	},
 })
 
 async function* walkDir(dir: string): AsyncGenerator<string> {
