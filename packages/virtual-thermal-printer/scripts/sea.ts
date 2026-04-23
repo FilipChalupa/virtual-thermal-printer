@@ -1,6 +1,9 @@
 import * as esbuild from 'esbuild'
-import { writeFile, readdir } from 'node:fs/promises'
+import { writeFile, readFile, readdir } from 'node:fs/promises'
 import { join, relative, sep } from 'node:path'
+
+const pkgJson = JSON.parse(await readFile('package.json', 'utf-8'))
+const appVersion: string = pkgJson.version ?? 'unknown'
 
 await esbuild.build({
 	entryPoints: ['main.ts'],
@@ -12,6 +15,8 @@ await esbuild.build({
 		// In CJS SEA context import.meta is unavailable — remap to __filename which
 		// Node.js SEA sets to the binary path.
 		'import.meta.url': '__importMetaUrl',
+		// Bake the version in at build time so the binary doesn't need package.json at runtime.
+		__APP_VERSION__: JSON.stringify(appVersion),
 	},
 	banner: {
 		js: "var __importMetaUrl = require('url').pathToFileURL(__filename).href;",

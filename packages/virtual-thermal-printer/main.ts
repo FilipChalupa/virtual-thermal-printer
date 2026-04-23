@@ -15,6 +15,9 @@ import { handleConnection, processEscPosStream } from './escpos.js'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
 const appVersion = (() => {
+	if (isSea()) {
+		return typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'unknown'
+	}
 	try {
 		const pkgJson = JSON.parse(
 			readFileSync(join(__dirname, 'package.json'), 'utf-8'),
