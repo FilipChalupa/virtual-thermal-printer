@@ -1,6 +1,9 @@
 import iconv from 'iconv-lite'
 import { PNG } from 'pngjs'
-import { Alignment, EscPosText, ParsedEscPosBlock } from './types.js'
+import QRCode from 'qrcode'
+import { Alignment, EscPosImage, EscPosText, ParsedEscPosBlock } from './types.js'
+
+export type QrErrorCorrectionLevel = 'L' | 'M' | 'Q' | 'H'
 
 export interface PrinterState {
 	alignment: Alignment
@@ -11,6 +14,10 @@ export interface PrinterState {
 	emphasized: boolean
 	underline: number
 	reversePrinting: boolean
+	qrModel: number
+	qrModuleSize: number
+	qrErrorCorrection: QrErrorCorrectionLevel
+	qrData: string
 }
 
 export interface ParsedCommandResult {
@@ -69,6 +76,29 @@ function convert1BitToRgba(
 		}
 	}
 	return rgbaData
+}
+
+async function renderQrAsImage(
+	state: PrinterState,
+): Promise<ParsedEscPosBlock> {
+	if (state.qrData.length === 0) {
+		return { type: 'command', name: 'Print QR Code (empty buffer)' }
+	}
+	const pngBuffer = await QRCode.toBuffer(state.qrData, {
+		errorCorrectionLevel: state.qrErrorCorrection,
+		scale: Math.max(1, Math.min(16, state.qrModuleSize)),
+		margin: 0,
+		type: 'png',
+	})
+	const png = PNG.sync.read(pngBuffer)
+	const image: EscPosImage = {
+		type: 'image',
+		width: png.width,
+		height: png.height,
+		base64: `data:image/png;base64,${pngBuffer.toString('base64')}`,
+	}
+	state.qrData = ''
+	return image
 }
 
 export async function parseEscPos(
@@ -155,6 +185,10 @@ export async function parseEscPos(
 						state.emphasized = false
 						state.underline = 0
 						state.reversePrinting = false
+						state.qrModel = 2
+						state.qrModuleSize = 3
+						state.qrErrorCorrection = 'L'
+						state.qrData = ''
 						parsedBlock = { type: 'command', name: 'Initialize Printer' }
 						consumedBytes = 2
 						break
@@ -550,6 +584,103 @@ export async function parseEscPos(
 							return { data: null, consumedBytes: 0 }
 						}
 						break
+					case 0x28: { // ( - Extended 2D/specialized command family: GS ( k pL pH cn fn [params]
+						if (command.length < 5) {
+							return { data: null, consumedBytes: 0 }
+						}
+						const subFamily = command[2]
+						const pL = command[3]
+						const pH = command[4]
+						const payloadLen = pL + pH * 256
+						const totalLen = 5 + payloadLen
+						if (command.length < totalLen) {
+							return { data: null, consumedBytes: 0 }
+						}
+						if (subFamily !== 0x6b || payloadLen < 2) {
+							parsedBlock = {
+								type: 'command',
+								name: 'Unknown GS ( Command',
+								details: { subFamily, payloadLen },
+							}
+							consumedBytes = totalLen
+							break
+						}
+						const cn = command[5]
+						const fn = command[6]
+						const params = command.subarray(7, totalLen)
+						consumedBytes = totalLen
+
+						if (cn !== 49) {
+							parsedBlock = {
+								type: 'command',
+								name: 'Unknown GS ( k Symbol',
+								details: { cn, fn },
+							}
+							break
+						}
+
+						switch (fn) {
+							case 65: // Select QR model
+								if (params.length >= 1) {
+									state.qrModel = params[0]
+								}
+								parsedBlock = {
+									type: 'command',
+									name: 'QR Set Model',
+									details: { model: state.qrModel },
+								}
+								break
+							case 67: // Set module size
+								if (params.length >= 1 && params[0] >= 1 && params[0] <= 16) {
+									state.qrModuleSize = params[0]
+								}
+								parsedBlock = {
+									type: 'command',
+									name: 'QR Set Module Size',
+									details: { size: state.qrModuleSize },
+								}
+								break
+							case 69: { // Set error correction level
+								const levelMap: Record<number, QrErrorCorrectionLevel> = {
+									48: 'L',
+									49: 'M',
+									50: 'Q',
+									51: 'H',
+								}
+								if (params.length >= 1 && levelMap[params[0]]) {
+									state.qrErrorCorrection = levelMap[params[0]]
+								}
+								parsedBlock = {
+									type: 'command',
+									name: 'QR Set Error Correction',
+									details: { level: state.qrErrorCorrection },
+								}
+								break
+							}
+							case 80: // Store data in symbol storage buffer
+								// params = [m, d1..dk]; m is typically 0x30 (48). Decode the rest as UTF-8.
+								state.qrData = new TextDecoder('utf-8').decode(
+									params.subarray(1),
+								)
+								parsedBlock = {
+									type: 'command',
+									name: 'QR Store Data',
+									details: { length: params.length - 1 },
+								}
+								break
+							case 81: // Print stored symbol data
+								parsedBlock = await renderQrAsImage(state)
+								break
+							default:
+								parsedBlock = {
+									type: 'command',
+									name: 'Unknown QR Function',
+									details: { fn },
+								}
+								break
+						}
+						break
+					}
 					default:
 						parsedBlock = {
 							type: 'command',
@@ -608,6 +739,10 @@ export class EscPosTransformer
 			emphasized: false,
 			underline: 0,
 			reversePrinting: false,
+			qrModel: 2,
+			qrModuleSize: 3,
+			qrErrorCorrection: 'L',
+			qrData: '',
 		}
 	}
 
