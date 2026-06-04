@@ -2,6 +2,8 @@ import { Readable } from 'node:stream'
 import type { Socket } from 'node:net'
 import { EscPosTransformer } from 'escpos-decoder'
 
+const encoder = new TextEncoder()
+
 const HTTP_METHODS = [
 	'GET ',
 	'POST ',
@@ -13,40 +15,67 @@ const HTTP_METHODS = [
 	'TRACE ',
 	'PATCH ',
 	'PRI ',
-].map((method) => new TextEncoder().encode(method))
+].map((method) => encoder.encode(method))
+
+// Appears in every HTTP request line ("GET /metrics HTTP/1.1"), so it catches
+// requests that show up mid-stream after other junk, not just at a chunk start.
+const HTTP_REQUEST_LINE = encoder.encode(' HTTP/1.')
 
 const TLS_HANDSHAKE = new Uint8Array([0x16, 0x03])
 
-function isProbe(chunk: Uint8Array): boolean {
-	if (chunk.length === 0) {
+function chunkStartsWith(chunk: Uint8Array, prefix: Uint8Array): boolean {
+	if (chunk.length < prefix.length) {
 		return false
 	}
-
-	for (const method of HTTP_METHODS) {
-		if (chunk.length >= method.length) {
-			let match = true
-			for (let i = 0; i < method.length; i++) {
-				if (chunk[i] !== method[i]) {
-					match = false
-					break
-				}
-			}
-			if (match) {
-				return true
-			}
+	for (let i = 0; i < prefix.length; i++) {
+		if (chunk[i] !== prefix[i]) {
+			return false
 		}
 	}
+	return true
+}
 
-	if (chunk.length >= TLS_HANDSHAKE.length) {
-		if (chunk[0] === TLS_HANDSHAKE[0] && chunk[1] === TLS_HANDSHAKE[1]) {
+function chunkIncludes(chunk: Uint8Array, needle: Uint8Array): boolean {
+	if (needle.length === 0 || chunk.length < needle.length) {
+		return false
+	}
+	outer: for (let i = 0; i <= chunk.length - needle.length; i++) {
+		for (let j = 0; j < needle.length; j++) {
+			if (chunk[i + j] !== needle[j]) {
+				continue outer
+			}
+		}
+		return true
+	}
+	return false
+}
+
+// HTTP request traffic (port scanners, browsers, NVMS-9000 banner grabs) can
+// arrive in any chunk, including after binary junk on a held-open connection,
+// so this is checked on every chunk rather than only the first one.
+export function containsHttpRequest(chunk: Uint8Array): boolean {
+	for (const method of HTTP_METHODS) {
+		if (chunkStartsWith(chunk, method)) {
 			return true
 		}
 	}
+	return chunkIncludes(chunk, HTTP_REQUEST_LINE)
+}
 
-	if (chunk.length >= 2 && chunk[0] === 0x00 && chunk[1] === 0x00) {
+// Binary handshakes / banners that only make sense at the very start of a
+// connection. Checked on the first chunk only, since these byte patterns
+// (TLS ClientHello, leading null bytes) legitimately occur inside ESC/POS
+// raster image data mid-stream.
+export function isConnectionProbe(chunk: Uint8Array): boolean {
+	if (chunk.length === 0) {
+		return false
+	}
+	if (chunkStartsWith(chunk, TLS_HANDSHAKE)) {
 		return true
 	}
-
+	if (chunk[0] === 0x00 && chunk[1] === 0x00) {
+		return true
+	}
 	return false
 }
 
@@ -59,11 +88,16 @@ class ProbeFilterTransformer implements Transformer<Uint8Array, Uint8Array> {
 	) {
 		if (!this.#firstChunkChecked) {
 			this.#firstChunkChecked = true
-			if (isProbe(chunk)) {
+			if (isConnectionProbe(chunk)) {
 				console.log('Probe detected, ignoring connection.')
 				controller.terminate()
 				return
 			}
+		}
+		if (containsHttpRequest(chunk)) {
+			console.log('HTTP request detected, ignoring connection.')
+			controller.terminate()
+			return
 		}
 		controller.enqueue(chunk)
 	}
