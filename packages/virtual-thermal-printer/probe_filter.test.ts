@@ -36,6 +36,14 @@ describe('isConnectionProbe', () => {
 		expect(isConnectionProbe(new Uint8Array([0x00, 0x00, 0x12]))).toBe(true)
 	})
 
+	it('detects a PJL fingerprinting probe', () => {
+		expect(isConnectionProbe(bytes('@PJL INFO STATUS\r\n'))).toBe(true)
+	})
+
+	it('detects a UEL-prefixed PJL probe', () => {
+		expect(isConnectionProbe(bytes('\x1b%-12345X@PJL INFO ID\r\n'))).toBe(true)
+	})
+
 	it('does not flag normal ESC/POS data', () => {
 		expect(isConnectionProbe(new Uint8Array([0x1b, 0x40]))).toBe(false)
 		expect(isConnectionProbe(bytes('Hello receipt'))).toBe(false)

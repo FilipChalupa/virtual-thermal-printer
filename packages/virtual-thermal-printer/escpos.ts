@@ -23,6 +23,14 @@ const HTTP_REQUEST_LINE = encoder.encode(' HTTP/1.')
 
 const TLS_HANDSHAKE = new Uint8Array([0x16, 0x03])
 
+// Printer Job Language probes. Scanners open a raw :9100 connection and send a
+// PJL query to fingerprint the device, e.g. "@PJL INFO STATUS", often prefixed
+// with the UEL sequence "ESC %-12345X". Real ESC/POS receipt data never
+// contains these signatures.
+const PJL_SIGNATURES = ['@PJL', '\x1b%-12345X'].map((signature) =>
+	encoder.encode(signature),
+)
+
 function chunkStartsWith(chunk: Uint8Array, prefix: Uint8Array): boolean {
 	if (chunk.length < prefix.length) {
 		return false
@@ -62,10 +70,10 @@ export function containsHttpRequest(chunk: Uint8Array): boolean {
 	return chunkIncludes(chunk, HTTP_REQUEST_LINE)
 }
 
-// Binary handshakes / banners that only make sense at the very start of a
-// connection. Checked on the first chunk only, since these byte patterns
-// (TLS ClientHello, leading null bytes) legitimately occur inside ESC/POS
-// raster image data mid-stream.
+// Handshakes / banners / fingerprinting probes that only make sense at the
+// very start of a connection. Checked on the first chunk only, since some of
+// these byte patterns (TLS ClientHello, leading null bytes) legitimately occur
+// inside ESC/POS raster image data mid-stream.
 export function isConnectionProbe(chunk: Uint8Array): boolean {
 	if (chunk.length === 0) {
 		return false
@@ -75,6 +83,11 @@ export function isConnectionProbe(chunk: Uint8Array): boolean {
 	}
 	if (chunk[0] === 0x00 && chunk[1] === 0x00) {
 		return true
+	}
+	for (const signature of PJL_SIGNATURES) {
+		if (chunkIncludes(chunk, signature)) {
+			return true
+		}
 	}
 	return false
 }
