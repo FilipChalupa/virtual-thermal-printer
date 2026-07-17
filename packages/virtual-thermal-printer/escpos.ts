@@ -2,94 +2,37 @@ import { Readable } from 'node:stream'
 import type { Socket } from 'node:net'
 import { EscPosTransformer } from 'escpos-decoder'
 
-const encoder = new TextEncoder()
+const ESC = 0x1b
+const INITIALIZE_PRINTER = 0x40 // '@' - the byte after ESC in "ESC @"
 
-const HTTP_METHODS = [
-	'GET ',
-	'POST ',
-	'HEAD ',
-	'OPTIONS ',
-	'PUT ',
-	'DELETE ',
-	'CONNECT ',
-	'TRACE ',
-	'PATCH ',
-	'PRI ',
-].map((method) => encoder.encode(method))
-
-// Appears in every HTTP request line ("GET /metrics HTTP/1.1"), so it catches
-// requests that show up mid-stream after other junk, not just at a chunk start.
-const HTTP_REQUEST_LINE = encoder.encode(' HTTP/1.')
-
-const TLS_HANDSHAKE = new Uint8Array([0x16, 0x03])
-
-// Printer Job Language probes. Scanners open a raw :9100 connection and send a
-// PJL query to fingerprint the device, e.g. "@PJL INFO STATUS", often prefixed
-// with the UEL sequence "ESC %-12345X". Real ESC/POS receipt data never
-// contains these signatures.
-const PJL_SIGNATURES = ['@PJL', '\x1b%-12345X'].map((signature) =>
-	encoder.encode(signature),
-)
-
-function chunkStartsWith(chunk: Uint8Array, prefix: Uint8Array): boolean {
-	if (chunk.length < prefix.length) {
+// Positive validation instead of a per-protocol blocklist: a genuine ESC/POS
+// print job opens with "ESC @" (Initialize Printer). Every ESC/POS library
+// emits it first and both of this project's fixtures start with it. Port
+// scanners probing :9100 for other services all open with something else, so
+// none pass this gate:
+//   Redis     "*1\r\n$4\r\nPING\r\n"          -> '*'  (0x2a)
+//   Memcached "stats\r\n"                       -> 's'  (0x73)
+//   MongoDB   "..admin.$cmd..isMaster.."        -> message-length prefix
+//   PJL       "@PJL INFO STATUS"                 -> '@'  (0x40)
+//   PJL+UEL   "ESC %-12345X@PJL.."              -> ESC then '%' (0x25), not '@'
+//   HTTP      "GET / HTTP/1.1"                   -> 'G'  (0x47)
+//   TLS       ClientHello                        -> 0x16
+//   Null-byte banner grab                        -> 0x00
+// Requiring "ESC @" specifically (rather than any control byte) is what closes
+// the UEL case, whose "ESC %" opening would otherwise pass an ESC-lead check.
+// Trade-off: a print job that skips the initialize command would be rejected
+// too, but that is vanishingly rare and an acceptable price for dropping every
+// scanner protocol without chasing signatures.
+export function looksLikeEscPos(chunk: Uint8Array): boolean {
+	if (chunk.length === 0 || chunk[0] !== ESC) {
 		return false
 	}
-	for (let i = 0; i < prefix.length; i++) {
-		if (chunk[i] !== prefix[i]) {
-			return false
-		}
-	}
-	return true
-}
-
-function chunkIncludes(chunk: Uint8Array, needle: Uint8Array): boolean {
-	if (needle.length === 0 || chunk.length < needle.length) {
-		return false
-	}
-	outer: for (let i = 0; i <= chunk.length - needle.length; i++) {
-		for (let j = 0; j < needle.length; j++) {
-			if (chunk[i + j] !== needle[j]) {
-				continue outer
-			}
-		}
+	// A split TCP write can deliver just the ESC of "ESC @" in the first chunk;
+	// accept the lone ESC and let the second byte arrive in the next chunk.
+	if (chunk.length === 1) {
 		return true
 	}
-	return false
-}
-
-// HTTP request traffic (port scanners, browsers, NVMS-9000 banner grabs) can
-// arrive in any chunk, including after binary junk on a held-open connection,
-// so this is checked on every chunk rather than only the first one.
-export function containsHttpRequest(chunk: Uint8Array): boolean {
-	for (const method of HTTP_METHODS) {
-		if (chunkStartsWith(chunk, method)) {
-			return true
-		}
-	}
-	return chunkIncludes(chunk, HTTP_REQUEST_LINE)
-}
-
-// Handshakes / banners / fingerprinting probes that only make sense at the
-// very start of a connection. Checked on the first chunk only, since some of
-// these byte patterns (TLS ClientHello, leading null bytes) legitimately occur
-// inside ESC/POS raster image data mid-stream.
-export function isConnectionProbe(chunk: Uint8Array): boolean {
-	if (chunk.length === 0) {
-		return false
-	}
-	if (chunkStartsWith(chunk, TLS_HANDSHAKE)) {
-		return true
-	}
-	if (chunk[0] === 0x00 && chunk[1] === 0x00) {
-		return true
-	}
-	for (const signature of PJL_SIGNATURES) {
-		if (chunkIncludes(chunk, signature)) {
-			return true
-		}
-	}
-	return false
+	return chunk[1] === INITIALIZE_PRINTER
 }
 
 class ProbeFilterTransformer implements Transformer<Uint8Array, Uint8Array> {
@@ -99,18 +42,16 @@ class ProbeFilterTransformer implements Transformer<Uint8Array, Uint8Array> {
 		chunk: Uint8Array,
 		controller: TransformStreamDefaultController<Uint8Array>,
 	) {
-		if (!this.#firstChunkChecked) {
+		// Wait for the first non-empty chunk before deciding.
+		if (!this.#firstChunkChecked && chunk.length > 0) {
 			this.#firstChunkChecked = true
-			if (isConnectionProbe(chunk)) {
-				console.log('Probe detected, ignoring connection.')
+			if (!looksLikeEscPos(chunk)) {
+				console.log(
+					'Connection did not start as ESC/POS, ignoring (probe/scan).',
+				)
 				controller.terminate()
 				return
 			}
-		}
-		if (containsHttpRequest(chunk)) {
-			console.log('HTTP request detected, ignoring connection.')
-			controller.terminate()
-			return
 		}
 		controller.enqueue(chunk)
 	}
