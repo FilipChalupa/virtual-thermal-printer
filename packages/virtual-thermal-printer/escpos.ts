@@ -20,9 +20,22 @@ const INITIALIZE_PRINTER = 0x40 // '@' - the byte after ESC in "ESC @"
 //   Null-byte banner grab                        -> 0x00
 // Requiring "ESC @" specifically (rather than any control byte) is what closes
 // the UEL case, whose "ESC %" opening would otherwise pass an ESC-lead check.
-// Trade-off: a print job that skips the initialize command would be rejected
-// too, but that is vanishingly rare and an acceptable price for dropping every
-// scanner protocol without chasing signatures.
+//
+// Trade-off: "ESC @" is a convention, not a protocol requirement — the printer
+// prints without it. Standard libraries and drivers (python-escpos, node
+// escpos, Epson/Star) emit it first to reset state, so ordinary print software
+// is unaffected. But a client that opens the connection with something else is
+// rejected, e.g.:
+//   - a raw/minimal client sending plain text (echo "..." | nc host 9100);
+//   - a driver that leads with a status/ID query such as DLE EOT (0x10 0x04)
+//     or a code-page selection before initializing;
+//   - a client relying on persistent printer state that sends a follow-up job
+//     on a fresh connection without re-initializing.
+// These are rare in practice and the accepted price for dropping every scanner
+// protocol without chasing per-protocol signatures. A rejected connection is
+// logged as "Connection did not start as ESC/POS" (see ProbeFilterTransformer);
+// if a legitimate client trips it, restrict access by source IP instead — that
+// is the only gate with neither false positives nor false negatives.
 export type EscPosStartVerdict = 'accept' | 'reject' | 'incomplete'
 
 // Classify a connection's leading bytes. 'incomplete' means we cannot decide
