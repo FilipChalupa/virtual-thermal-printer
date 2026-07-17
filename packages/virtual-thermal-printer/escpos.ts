@@ -23,37 +23,61 @@ const INITIALIZE_PRINTER = 0x40 // '@' - the byte after ESC in "ESC @"
 // Trade-off: a print job that skips the initialize command would be rejected
 // too, but that is vanishingly rare and an acceptable price for dropping every
 // scanner protocol without chasing signatures.
-export function looksLikeEscPos(chunk: Uint8Array): boolean {
-	if (chunk.length === 0 || chunk[0] !== ESC) {
-		return false
+export type EscPosStartVerdict = 'accept' | 'reject' | 'incomplete'
+
+// Classify a connection's leading bytes. 'incomplete' means we cannot decide
+// yet and need more bytes — only possible when a split TCP write delivers just
+// the lone ESC of "ESC @" so far. The buffer is held (never forwarded) until it
+// resolves to 'accept' or 'reject', so a probe that fragments a leading ESC
+// byte cannot slip through on the "wait-and-see" byte.
+export function classifyEscPosStart(leading: Uint8Array): EscPosStartVerdict {
+	if (leading.length === 0) {
+		return 'incomplete'
 	}
-	// A split TCP write can deliver just the ESC of "ESC @" in the first chunk;
-	// accept the lone ESC and let the second byte arrive in the next chunk.
-	if (chunk.length === 1) {
-		return true
+	if (leading[0] !== ESC) {
+		return 'reject'
 	}
-	return chunk[1] === INITIALIZE_PRINTER
+	if (leading.length < 2) {
+		return 'incomplete'
+	}
+	return leading[1] === INITIALIZE_PRINTER ? 'accept' : 'reject'
 }
 
 class ProbeFilterTransformer implements Transformer<Uint8Array, Uint8Array> {
-	#firstChunkChecked = false
+	#decided = false
+	#pending: Uint8Array = new Uint8Array(0)
 
 	transform(
 		chunk: Uint8Array,
 		controller: TransformStreamDefaultController<Uint8Array>,
 	) {
-		// Wait for the first non-empty chunk before deciding.
-		if (!this.#firstChunkChecked && chunk.length > 0) {
-			this.#firstChunkChecked = true
-			if (!looksLikeEscPos(chunk)) {
+		if (this.#decided) {
+			controller.enqueue(chunk)
+			return
+		}
+
+		// Accumulate leading bytes until we can tell whether the connection opens
+		// with "ESC @". Nothing is forwarded downstream until we're sure.
+		const merged = new Uint8Array(this.#pending.length + chunk.length)
+		merged.set(this.#pending)
+		merged.set(chunk, this.#pending.length)
+		this.#pending = merged
+
+		switch (classifyEscPosStart(this.#pending)) {
+			case 'incomplete':
+				return
+			case 'reject':
 				console.log(
 					'Connection did not start as ESC/POS, ignoring (probe/scan).',
 				)
 				controller.terminate()
 				return
-			}
+			case 'accept':
+				this.#decided = true
+				controller.enqueue(this.#pending)
+				this.#pending = new Uint8Array(0)
+				return
 		}
-		controller.enqueue(chunk)
 	}
 }
 
