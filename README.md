@@ -105,3 +105,7 @@ GitHub Actions then builds platform binaries (Linux, macOS, Windows) and a Docke
 | `npm run docker:build` | Build Docker image |
 | `npm run docker:start` | Run Docker container |
 | `npm run version:bump` | Bump patch version, commit and tag |
+
+## License
+
+[MIT](LICENSE)
