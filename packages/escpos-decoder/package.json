@@ -1,7 +1,29 @@
 {
 	"name": "escpos-decoder",
 	"version": "0.1.0",
+	"description": "Streaming decoder that turns raw ESC/POS bytes into typed text, command and image blocks",
+	"keywords": [
+		"escpos",
+		"esc/pos",
+		"thermal-printer",
+		"receipt-printer",
+		"pos",
+		"epson",
+		"decoder",
+		"parser",
+		"stream"
+	],
 	"license": "MIT",
+	"author": "Filip Chalupa",
+	"homepage": "https://github.com/FilipChalupa/virtual-thermal-printer/tree/main/packages/escpos-decoder#readme",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/FilipChalupa/virtual-thermal-printer.git",
+		"directory": "packages/escpos-decoder"
+	},
+	"bugs": {
+		"url": "https://github.com/FilipChalupa/virtual-thermal-printer/issues"
+	},
 	"type": "module",
 	"exports": {
 		".": {
@@ -15,6 +37,11 @@
 			"types": "./dist/types.d.ts"
 		}
 	},
+	"files": [
+		"dist",
+		"src",
+		"!src/**/*.test.ts"
+	],
 	"engines": {
 		"node": ">=22"
 	},
