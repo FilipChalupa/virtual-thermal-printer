@@ -154,6 +154,7 @@ interface EscPosImage {
 	width: number
 	height: number
 	base64: string // data:image/png;base64,...
+	alignment: Alignment // ESC a when the image was printed
 }
 ```
 

@@ -466,6 +466,13 @@ describe('parseEscPos', () => {
 		expect(img.base64.startsWith('data:image/png;base64,')).toBe(true)
 	})
 
+	it('Images carry the alignment', async () => {
+		const center = new Uint8Array([0x1b, 0x61, 0x01])
+		const blocks = await collectFromTransformer([center, buildQrSequence('https://example.com')])
+		const image = blocks.find((b) => b.type === 'image')
+		expect(image).toMatchObject({ alignment: Alignment.Center })
+	})
+
 	it('QR Code split across chunks still emits one image', async () => {
 		const bytes = buildQrSequence('https://example.com')
 		const mid = Math.floor(bytes.length / 2)

@@ -221,6 +221,7 @@ async function renderQrAsImage(
 		width: png.width,
 		height: png.height,
 		base64: `data:image/png;base64,${pngBuffer.toString('base64')}`,
+		alignment: state.alignment,
 	}
 	state.qrData = ''
 	return image
@@ -807,6 +808,7 @@ export async function parseEscPos(
 										width: pixelWidth,
 										height: height,
 										base64: `data:image/png;base64,${base64}`,
+										alignment: state.alignment,
 									}
 									consumedBytes = 8 + expectedImageDataSize
 								} else {

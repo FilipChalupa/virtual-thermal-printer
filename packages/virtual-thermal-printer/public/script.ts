@@ -428,16 +428,32 @@ function appendImage(data: EscPosImage) {
 		img.src = data.base64
 		img.width = data.width
 		img.height = data.height
+		// Sized relative to the paper, so images scale together with text rows,
+		// and aligned with ESC a like on the printer.
+		img.style.width = `${Math.min(data.width / printerWidth, 1) * 100}%`
+		img.style.marginInline = data.alignment === Alignment.Center
+			? 'auto'
+			: data.alignment === Alignment.Right
+			? 'auto 0'
+			: '0 auto'
 		paperContent.appendChild(img)
 		return
 	}
 	const target = page
 	const top = target.y
+	const width = pageSize(target).width
+	const left = data.alignment === Alignment.Center
+		? (width - data.width) / 2
+		: data.alignment === Alignment.Right
+		? width - data.width
+		: 0
 	const image = new Image()
 	image.src = data.base64
 	target.pendingImages.push(
 		image.decode()
-			.then(() => drawOnPage(target, (ctx) => ctx.drawImage(image, 0, top)))
+			.then(() =>
+				drawOnPage(target, (ctx) => ctx.drawImage(image, Math.max(left, 0), top))
+			)
 			.catch(() => {}),
 	)
 	target.y += data.height

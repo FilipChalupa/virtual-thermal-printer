@@ -40,4 +40,6 @@ export interface EscPosImage {
 	width: number
 	height: number
 	base64: string
+	/** Alignment (ESC a) when the image was printed. */
+	alignment: Alignment
 }
