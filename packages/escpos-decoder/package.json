@@ -50,6 +50,7 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
+		"bwip-js": "^4.11.4",
 		"iconv-lite": "^0.6.3",
 		"pngjs": "^7.0.0",
 		"qrcode": "^1.5.4"

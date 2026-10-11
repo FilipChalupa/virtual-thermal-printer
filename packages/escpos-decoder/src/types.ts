@@ -27,6 +27,12 @@ export interface EscPosText {
 	tabStops: number[]
 	/** Line spacing in dots (ESC 3); null = the printer's default (ESC 2). */
 	lineSpacing: number | null
+	/** Double-strike mode (ESC G); printers render it like emphasized. */
+	doubleStrike: boolean
+	/** Upside-down printing (ESC {): the line is rotated 180°. */
+	upsideDown: boolean
+	/** 90° clockwise rotation of each character (ESC V). */
+	rotated: boolean
 }
 
 export interface EscPosCommand {

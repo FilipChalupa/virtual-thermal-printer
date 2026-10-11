@@ -141,6 +141,9 @@ interface EscPosText {
 	printAreaWidth: number // dots from the left margin, 0 = rest of the line
 	tabStops: number[] // dots from the line start, every 8 Font A characters by default
 	lineSpacing: number | null // dots, null = the printer's default
+	doubleStrike: boolean // printers render it like emphasized
+	upsideDown: boolean // the line is rotated 180°
+	rotated: boolean // each character is rotated 90° clockwise
 }
 
 interface EscPosCommand {
@@ -186,14 +189,19 @@ interface EscPosImage {
 | Raster bit image | `GS v 0` | image |
 | Bit image | `ESC *` | command (consumed, not rendered) |
 | QR code | `GS ( k` model, size, error correction, store, print | command per function, image on print |
-| Barcode | `GS k` | command with type and data |
-| Barcode height | `GS h` | command |
+| Barcode | `GS k` | image (UPC-A/E, EAN-13/8, CODE39, ITF, CODABAR, CODE93, CODE128, GS1 DataBar), command with an error otherwise |
+| Barcode height, module width | `GS h`, `GS w` | command, applied to following barcodes |
+| HRI text position and font | `GS H`, `GS f` | command, applied to following barcodes |
+| Double-strike mode | `ESC G` | command, applied to following text |
+| Upside-down printing | `ESC {` | command, applied to following text |
+| 90° clockwise rotation | `ESC V` | command, applied to following text |
+| Print and reverse feed lines | `ESC e` | command |
 | Beep | `ESC B` | command |
 | Cash drawer pulse | `ESC p` | command |
 | Cancel Chinese character mode | `FS .` | command |
 
 Other common commands that do not affect the printed output (for example
-`ESC G`, `ESC R`, `GS H`, `GS P`, `FS p` and the `ESC (` / `FS (` families) are
+`ESC R`, `ESC c`, `GS P`, `FS p` and the `ESC (` / `FS (` families) are
 consumed with their parameters and emitted as commands, so their parameter bytes
 never end up in text. Control bytes that are not commands (such as `NUL`) are
 emitted as `Unknown Control Byte`.

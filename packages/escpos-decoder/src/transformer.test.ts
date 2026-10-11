@@ -17,6 +17,13 @@ function makeState(): PrinterState {
 		rightSpacing: 0,
 		tabStops: defaultTabStops,
 		lineSpacing: null,
+		doubleStrike: false,
+		upsideDown: false,
+		rotated: false,
+		barcodeHeight: 162,
+		barcodeWidth: 3,
+		hriPosition: 0,
+		hriFont: 0,
 		qrModel: 2,
 		qrModuleSize: 3,
 		qrErrorCorrection: 'L',
@@ -122,6 +129,9 @@ describe('parseEscPos', () => {
 			printAreaWidth: 0,
 			tabStops: defaultTabStops,
 			lineSpacing: null,
+			doubleStrike: false,
+			upsideDown: false,
+			rotated: false,
 		})
 	})
 
@@ -143,6 +153,9 @@ describe('parseEscPos', () => {
 			printAreaWidth: 0,
 			tabStops: defaultTabStops,
 			lineSpacing: null,
+			doubleStrike: false,
+			upsideDown: false,
+			rotated: false,
 		})
 	})
 
@@ -346,14 +359,69 @@ describe('parseEscPos', () => {
 		const partial = await parseEscPos(new Uint8Array([0x1d, 0x6b, 0x04, 0x31, 0x32]), makeState())
 		expect(partial).toEqual({ data: null, consumedBytes: 0 })
 		const formatA = await parseEscPos(new Uint8Array([0x1d, 0x6b, 0x04, 0x31, 0x32, 0x00, 0x41]), makeState())
-		expect(formatA).toEqual({
-			data: { type: 'command', name: 'Print Barcode', details: { barcodeType: 4, barcodeData: '12' } },
-			consumedBytes: 6,
-		})
+		expect(formatA.consumedBytes).toBe(6)
+		expect(formatA.data?.type).toBe('image')
 		const formatB = await parseEscPos(new Uint8Array([0x1d, 0x6b, 0x49, 0x03, 0x41, 0x00, 0x42, 0x43]), makeState())
-		expect(formatB).toEqual({
-			data: { type: 'command', name: 'Print Barcode', details: { barcodeType: 73, barcodeData: 'A\u0000B' } },
-			consumedBytes: 7,
+		expect(formatB.consumedBytes).toBe(7)
+	})
+
+	it('Barcode is rendered with the module width, height and alignment', async () => {
+		const state = makeState()
+		await parseEscPos(new Uint8Array([0x1b, 0x61, 0x01]), state)
+		await parseEscPos(new Uint8Array([0x1d, 0x68, 80]), state)
+		await parseEscPos(new Uint8Array([0x1d, 0x77, 2]), state)
+		const ean = iconv.encode('400638133393', 'latin1')
+		const narrow = await parseEscPos(new Uint8Array([0x1d, 0x6b, 0x43, ean.length, ...ean]), state)
+		expect(narrow.data).toMatchObject({ type: 'image', height: 80, alignment: Alignment.Center })
+		await parseEscPos(new Uint8Array([0x1d, 0x77, 4]), state)
+		const wide = await parseEscPos(new Uint8Array([0x1d, 0x6b, 0x43, ean.length, ...ean]), state)
+		if (narrow.data?.type !== 'image' || wide.data?.type !== 'image') throw new Error('expected images')
+		expect(wide.data.width).toBe(narrow.data.width * 2)
+	})
+
+	it('Barcode HRI text adds height', async () => {
+		const state = makeState()
+		const data = iconv.encode('CODE39', 'latin1')
+		const plain = await parseEscPos(new Uint8Array([0x1d, 0x6b, 0x04, ...data, 0x00]), state)
+		await parseEscPos(new Uint8Array([0x1d, 0x48, 0x32]), state) // ASCII '2': below
+		expect(state.hriPosition).toBe(2)
+		const withText = await parseEscPos(new Uint8Array([0x1d, 0x6b, 0x04, ...data, 0x00]), state)
+		if (plain.data?.type !== 'image' || withText.data?.type !== 'image') throw new Error('expected images')
+		expect(plain.data.height).toBe(162)
+		expect(withText.data.height).toBeGreaterThan(162)
+	})
+
+	it('Barcode CODE128 code set C packs digit pairs', async () => {
+		const result = await parseEscPos(new Uint8Array([0x1d, 0x6b, 0x49, 0x06, 0x7b, 0x43, 12, 34, 56, 78]), makeState())
+		expect(result.data?.type).toBe('image')
+	})
+
+	it('Barcode with invalid data emits a command with the error', async () => {
+		const data = iconv.encode('12AB', 'latin1') // EAN-13 needs digits
+		const result = await parseEscPos(new Uint8Array([0x1d, 0x6b, 0x43, data.length, ...data]), makeState())
+		expect(result.consumedBytes).toBe(4 + data.length)
+		expect(result.data).toMatchObject({ type: 'command', name: 'Print Barcode', details: { barcodeData: '12AB' } })
+		expect(result.data?.type === 'command' && result.data.details?.error).toBeTruthy()
+	})
+
+	it('Double-strike, upside-down and 90° rotation apply to text', async () => {
+		const state = makeState()
+		await parseEscPos(new Uint8Array([0x1b, 0x47, 0x31]), state)
+		await parseEscPos(new Uint8Array([0x1b, 0x7b, 0x01]), state)
+		await parseEscPos(new Uint8Array([0x1b, 0x56, 0x32]), state)
+		const result = await parseEscPos(new Uint8Array([0x41, 0x0a]), state)
+		expect(result.data).toMatchObject({ doubleStrike: true, upsideDown: true, rotated: true })
+		await parseEscPos(new Uint8Array([0x1b, 0x56, 0x30]), state)
+		expect(state.rotated).toBe(false)
+		await parseEscPos(new Uint8Array([0x1b, 0x40]), state)
+		expect(state).toMatchObject({ doubleStrike: false, upsideDown: false, barcodeHeight: 162, barcodeWidth: 3 })
+	})
+
+	it('Print and Reverse Feed Lines (ESC e)', async () => {
+		const result = await parseEscPos(new Uint8Array([0x1b, 0x65, 0x02]), makeState())
+		expect(result).toEqual({
+			data: { type: 'command', name: 'Print and Reverse Feed Lines', details: { lines: 2, lineSpacing: null } },
+			consumedBytes: 3,
 		})
 	})
 
