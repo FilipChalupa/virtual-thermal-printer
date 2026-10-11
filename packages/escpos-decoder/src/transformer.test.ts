@@ -130,6 +130,30 @@ describe('parseEscPos', () => {
 		})
 	})
 
+	it('Print and Feed Paper (ESC J)', async () => {
+		const command = new Uint8Array([0x1b, 0x4a, 0x30])
+		const result = await parseEscPos(command, makeState())
+		expect(result).toEqual({
+			data: { type: 'command', name: 'Print and Feed Paper', details: { feed: 48 } },
+			consumedBytes: 3,
+		})
+	})
+
+	it('Print and Feed Lines (ESC d) consumes its parameter byte', async () => {
+		const command = new Uint8Array([0x1b, 0x64, 0x03, 0x41])
+		const result = await parseEscPos(command, makeState())
+		expect(result).toEqual({
+			data: { type: 'command', name: 'Print and Feed Lines', details: { lines: 3 } },
+			consumedBytes: 3,
+		})
+	})
+
+	it('Print and Feed Lines (ESC d) waits for its parameter byte', async () => {
+		const command = new Uint8Array([0x1b, 0x64])
+		const result = await parseEscPos(command, makeState())
+		expect(result).toEqual({ data: null, consumedBytes: 0 })
+	})
+
 	it('Set Char Size', async () => {
 		const command = new Uint8Array([0x1d, 0x21, 0x11])
 		const state = makeState()
