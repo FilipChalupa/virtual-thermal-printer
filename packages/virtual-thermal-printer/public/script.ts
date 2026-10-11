@@ -104,10 +104,11 @@ let isFirstMessage = true
 // Font B 9 × 17 (64 columns). Glyphs are stretched onto these cells so
 // wrapping and space-padded columns match the paper.
 const fonts = [
-	{ cellWidth: 12, fontSize: 20 },
-	{ cellWidth: 9, fontSize: 14 },
+	{ cellWidth: 12, cellHeight: 24, fontSize: 20 },
+	{ cellWidth: 9, cellHeight: 17, fontSize: 14 },
 ]
-const lineHeight = 1.5 // Row pitch relative to the font, with room for descenders
+// Line spacing until ESC 3 sets one (and after ESC 2), about 1/6 in.
+const defaultLineSpacing = 30
 
 interface TextSegment {
 	text: string
@@ -119,28 +120,45 @@ interface TextRow {
 	canvas: HTMLCanvasElement
 	segments: TextSegment[]
 	style: EscPosText // Style at the start of the line, which sets its layout
+	width: number // Canvas width in dots: the paper, or the page in page mode
 	left: number // Left margin in dots
 	area: number // Printable width in dots from the left margin
 	position: number // Next print position in dots from the start of the line
+}
+
+// Page mode (ESC L) composes output on a page that FF or ESC FF prints.
+interface Page {
+	canvas: HTMLCanvasElement // The physical page, as wide as the paper
+	area: { x: number; y: number; width: number; height: number } // ESC W
+	// ESC T: 0 left to right, 1 bottom to top, 2 right to left, 3 top to bottom.
+	direction: number
+	y: number // Top of the current line in the print direction, in dots
+	pendingImages: Promise<void>[]
 }
 
 // The row being printed. Text blocks that arrive before it ends (style
 // changes mid-line) are appended to it. An LF, paper feed, image or cut ends
 // it, and the next text starts a new row.
 let openRow: TextRow | null = null
-// ESC $ received before any text on the line, applied when the row starts.
+// ESC $ or ESC \ received before any text on the line, applied when the row starts.
 let pendingPosition: number | null = null
-// Blank line height for the latest text, used for line feeds sent as commands.
-const defaultRowHeight = Math.floor(fonts[0].fontSize * lineHeight)
-let lastRowHeight = defaultRowHeight
+let page: Page | null = null
+// The default page area differs between models; this one is the full head
+// width and 831 dots (about 104 mm) high.
+const defaultPageHeight = 831
 
 function fontOf(style: EscPosText) {
 	return fonts[style.font] ?? fonts[0]
 }
 
-// Canvas sizes are whole pixels, so blank lines use the same rounded height.
+function lineSpacing(style: { lineSpacing: number | null }): number {
+	return style.lineSpacing ?? defaultLineSpacing
+}
+
+// A printed line advances by the line spacing, or by the character height
+// when the characters are taller.
 function rowHeight(style: EscPosText): number {
-	return Math.floor(fontOf(style).fontSize * style.charHeight * lineHeight)
+	return Math.max(lineSpacing(style), fontOf(style).cellHeight * style.charHeight)
 }
 
 // ESC SP spacing follows each character and doubles with double width.
@@ -154,18 +172,95 @@ function segmentFont(style: EscPosText): string {
 	}px monospace`
 }
 
-function endRow() {
+// Width and height of the page area as seen in the current print direction.
+function pageSize(target: Page): { width: number; height: number } {
+	const { width, height } = target.area
+	return target.direction % 2 === 0 ? { width, height } : { width: height, height: width }
+}
+
+// Draws in print-direction coordinates, rotated onto the page area.
+function drawOnPage(target: Page, draw: (ctx: CanvasRenderingContext2D) => void) {
+	const ctx = target.canvas.getContext('2d')
+	if (!ctx) {
+		return
+	}
+	const { x, y, width, height } = target.area
+	ctx.save()
+	ctx.beginPath()
+	ctx.rect(x, y, width, height)
+	ctx.clip()
+	if (target.direction === 1) {
+		ctx.translate(x, y + height)
+		ctx.rotate(-Math.PI / 2)
+	} else if (target.direction === 2) {
+		ctx.translate(x + width, y + height)
+		ctx.rotate(Math.PI)
+	} else if (target.direction === 3) {
+		ctx.translate(x + width, y)
+		ctx.rotate(Math.PI / 2)
+	} else {
+		ctx.translate(x, y)
+	}
+	draw(ctx)
+	ctx.restore()
+}
+
+// A page canvas as tall as the area ends, keeping what `from` had drawn.
+function pageCanvas(height: number, from?: HTMLCanvasElement) {
+	const canvas = document.createElement('canvas')
+	canvas.width = printerWidth
+	canvas.height = height
+	if (from) {
+		canvas.getContext('2d')?.drawImage(from, 0, 0)
+	}
+	return canvas
+}
+
+function createPage(): Page {
+	return {
+		canvas: pageCanvas(defaultPageHeight),
+		area: { x: 0, y: 0, width: printerWidth, height: defaultPageHeight },
+		direction: 0,
+		y: 0,
+		pendingImages: [],
+	}
+}
+
+function printPage(target: Page) {
+	// The page is copied once its images are drawn. ESC FF keeps the page for
+	// further printing, so the copy must not change with it.
+	const printed = document.createElement('canvas')
+	printed.width = target.canvas.width
+	printed.height = target.canvas.height
+	paperContent.appendChild(printed)
+	Promise.all(target.pendingImages).then(() => {
+		printed.getContext('2d')?.drawImage(target.canvas, 0, 0)
+	})
+}
+
+// Ends the open row. In page mode the row is drawn onto the page and, unless
+// the vertical position is about to be set, the position moves below it.
+function endRow(advance = true) {
+	if (openRow && page) {
+		const row = openRow
+		const top = page.y
+		drawOnPage(page, (ctx) => ctx.drawImage(row.canvas, 0, top))
+		if (advance) {
+			page.y += row.canvas.height
+		}
+	}
 	openRow = null
 	pendingPosition = null
 }
 
 function startRow(style: EscPosText): TextRow {
-	// Out-of-range margins and widths are clamped so at least one cell fits.
-	const left = Math.min(style.leftMargin, printerWidth - cellWidth(style))
-	const area = Math.min(
-		style.printAreaWidth || printerWidth,
-		printerWidth - left,
-	)
+	const width = page ? pageSize(page).width : printerWidth
+	// Margins apply in standard mode only. Out-of-range values are clamped so
+	// at least one cell fits.
+	const left = page ? 0 : Math.min(style.leftMargin, width - cellWidth(style))
+	const area = page
+		? width
+		: Math.min(style.printAreaWidth || width, width - left)
 	const position = pendingPosition !== null && pendingPosition <= area
 		? pendingPosition
 		: 0
@@ -173,11 +268,14 @@ function startRow(style: EscPosText): TextRow {
 		canvas: document.createElement('canvas'),
 		segments: [],
 		style,
+		width,
 		left,
 		area,
 		position,
 	}
-	paperContent.appendChild(row.canvas)
+	if (!page) {
+		paperContent.appendChild(row.canvas)
+	}
 	openRow = row
 	pendingPosition = null
 	return row
@@ -194,7 +292,7 @@ function drawRow(row: TextRow) {
 		row.style,
 	)
 	// Resizing clears the canvas, so the whole row is redrawn each time.
-	row.canvas.width = printerWidth
+	row.canvas.width = row.width
 	row.canvas.height = rowHeight(tallest)
 
 	// Center the tallest font's ascent and descent in the row, so descenders
@@ -265,13 +363,11 @@ function appendText(text: string, style: EscPosText) {
 		const char = text[index]
 		const row = openRow ?? startRow(style)
 		if (char === '\t') {
-			// HT moves to the next tab stop, given in character columns. Past
-			// the print area it fills the line; with no stops set it is ignored.
+			// HT moves to the next tab stop. Past the print area it fills the
+			// line; with no stops set it is ignored.
 			flush(row)
 			if (style.tabStops.length > 0) {
-				const next = style.tabStops
-					.map((column) => column * cell)
-					.find((stop) => stop > row.position)
+				const next = style.tabStops.find((stop) => stop > row.position)
 				row.position = next === undefined || next > row.area
 					? row.area
 					: next
@@ -299,9 +395,14 @@ function appendText(text: string, style: EscPosText) {
 	}
 }
 
-// Blank paper, scaled exactly like a text row canvas of the same height.
+// Blank paper, scaled exactly like a text row canvas of the same height. In
+// page mode it moves the vertical position instead.
 function appendFeed(dots: number) {
 	if (dots <= 0) {
+		return
+	}
+	if (page) {
+		page.y += dots
 		return
 	}
 	const feed = document.createElement('div')
@@ -320,6 +421,121 @@ function lineFeed(height: number) {
 	}
 }
 
+function appendImage(data: EscPosImage) {
+	endRow()
+	if (!page) {
+		const img = document.createElement('img')
+		img.src = data.base64
+		img.width = data.width
+		img.height = data.height
+		// Sized relative to the paper, so images scale together with text rows,
+		// and aligned with ESC a like on the printer.
+		img.style.width = `${Math.min(data.width / printerWidth, 1) * 100}%`
+		img.style.marginInline = data.alignment === Alignment.Center
+			? 'auto'
+			: data.alignment === Alignment.Right
+			? 'auto 0'
+			: '0 auto'
+		paperContent.appendChild(img)
+		return
+	}
+	const target = page
+	const top = target.y
+	const width = pageSize(target).width
+	const left = data.alignment === Alignment.Center
+		? (width - data.width) / 2
+		: data.alignment === Alignment.Right
+		? width - data.width
+		: 0
+	const image = new Image()
+	image.src = data.base64
+	target.pendingImages.push(
+		image.decode()
+			.then(() =>
+				drawOnPage(target, (ctx) => ctx.drawImage(image, Math.max(left, 0), top))
+			)
+			.catch(() => {}),
+	)
+	target.y += data.height
+}
+
+// Commands that only exist in page mode; they are ignored in standard mode.
+function handlePageCommand(command: EscPosCommand, target: Page) {
+	const details = command.details ?? {}
+	if (command.name === 'Set Page Area') {
+		const x = Math.min(Number(details.x ?? 0), printerWidth - 1)
+		const width = Math.min(Number(details.width ?? 0), printerWidth - x)
+		const y = Number(details.y ?? 0)
+		const height = Number(details.height ?? 0)
+		if (width === 0 || height === 0) {
+			return
+		}
+		endRow()
+		// The printed page ends with the area.
+		target.canvas = pageCanvas(y + height, target.canvas)
+		target.area = { x, y, width, height }
+		target.y = 0
+	} else if (command.name === 'Select Print Direction') {
+		endRow()
+		target.direction = Number(details.direction ?? 0)
+		target.y = 0
+	} else if (
+		command.name === 'Set Absolute Vertical Position' ||
+		command.name === 'Set Relative Vertical Position'
+	) {
+		// GS $ and GS \ move the line, here taken as its top edge, and keep
+		// the horizontal position.
+		const x = openRow?.position ?? pendingPosition
+		endRow(false)
+		const y = command.name === 'Set Absolute Vertical Position'
+			? Number(details.position ?? 0)
+			: target.y + Number(details.offset ?? 0)
+		if (y >= 0 && y <= pageSize(target).height) {
+			target.y = y
+		}
+		pendingPosition = x
+	} else if (command.name === 'Print Page') {
+		endRow()
+		printPage(target)
+	} else if (command.name === 'Form Feed') {
+		endRow()
+		printPage(target)
+		page = null
+	} else if (command.name === 'Cancel Page Data') {
+		openRow = null
+		pendingPosition = null
+		target.canvas = pageCanvas(target.canvas.height)
+		target.pendingImages = []
+		target.y = 0
+	}
+}
+
+const pageCommands = new Set([
+	'Set Page Area',
+	'Select Print Direction',
+	'Set Absolute Vertical Position',
+	'Set Relative Vertical Position',
+	'Print Page',
+	'Form Feed',
+	'Cancel Page Data',
+])
+
+function isPageCommand(name: string): boolean {
+	return pageCommands.has(name)
+}
+
+// Positions outside the print area are ignored, as on the printer.
+function movePrintPosition(position: number) {
+	if (position < 0) {
+		return
+	}
+	if (!openRow) {
+		pendingPosition = position
+	} else if (position <= openRow.area) {
+		openRow.position = position
+	}
+}
+
 function connectWebSocket(): void {
 	const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
 	socket = new WebSocket(`${protocol}//${location.host}/stream`)
@@ -333,8 +549,9 @@ function connectWebSocket(): void {
 		}
 		placeholderText.classList.remove('is-hidden')
 		isFirstMessage = true
-		endRow()
-		lastRowHeight = defaultRowHeight
+		openRow = null
+		pendingPosition = null
+		page = null
 	}
 
 	socket.onmessage = (event: MessageEvent) => {
@@ -346,19 +563,13 @@ function connectWebSocket(): void {
 		console.log(data)
 
 		if (isEscPosImage(data)) {
-			const img = document.createElement('img')
-			img.src = data.base64
-			img.width = data.width
-			img.height = data.height
-			paperContent.appendChild(img)
-			endRow()
+			appendImage(data)
 		} else if (isEscPosText(data)) {
-			lastRowHeight = rowHeight(data)
 			// CR is ignored, as on printers without auto line feed. CRLF line
 			// endings would otherwise take up a column before every LF.
 			data.content.replace(/\r/g, '').split(/(\n)/).forEach((part) => {
 				if (part === '\n') {
-					lineFeed(rowHeight(data))
+					lineFeed(lineSpacing(data))
 				} else if (part !== '') {
 					appendText(part, data)
 				}
@@ -368,7 +579,23 @@ function connectWebSocket(): void {
 			if (data.name === 'Beep') {
 				console.log('Playing beep sound')
 				beepSound.play()
-			} else if (data.name === 'Cut Paper') {
+			} else if (data.name === 'Initialize Printer') {
+				// ESC @ returns to standard mode and discards an unprinted page.
+				if (page) {
+					openRow = null
+					page = null
+				}
+			} else if (data.name === 'Select Page Mode') {
+				endRow()
+				page ??= createPage()
+			} else if (data.name === 'Select Standard Mode') {
+				// ESC S discards the page without printing it.
+				openRow = page ? null : openRow
+				endRow()
+				page = null
+			} else if (page && isPageCommand(data.name)) {
+				handlePageCommand(data, page)
+			} else if (data.name === 'Cut Paper' && !page) {
 				const cutLine = document.createElement('div')
 				cutLine.className = 'cut-line'
 				paperContent.appendChild(cutLine)
@@ -376,11 +603,14 @@ function connectWebSocket(): void {
 			} else if (data.name === 'Print and Feed Lines') {
 				// ESC d n: print the row, then feed n lines, so it acts as n LFs.
 				const lines = Number(data.details?.lines ?? 0)
+				const spacing = lineSpacing({
+					lineSpacing: (data.details?.lineSpacing as number | null) ?? null,
+				})
 				if (lines === 0) {
 					endRow()
 				}
 				for (let i = 0; i < lines; i++) {
-					lineFeed(lastRowHeight)
+					lineFeed(spacing)
 				}
 			} else if (data.name === 'Print and Feed Paper') {
 				// ESC J n: print the row, then feed n motion units, taken as dots
@@ -393,12 +623,11 @@ function connectWebSocket(): void {
 			} else if (data.name === 'Set Absolute Print Position') {
 				// ESC $ moves the print position, in dots from the start of the line.
 				// Positions past the print area are ignored, as on the printer.
-				const position = Number(data.details?.position ?? 0)
-				if (!openRow) {
-					pendingPosition = position
-				} else if (position <= openRow.area) {
-					openRow.position = position
-				}
+				movePrintPosition(Number(data.details?.position ?? 0))
+			} else if (data.name === 'Set Relative Print Position') {
+				// ESC \ moves the print position relative to the current one.
+				const current = openRow?.position ?? pendingPosition ?? 0
+				movePrintPosition(current + Number(data.details?.offset ?? 0))
 			}
 		}
 		linearScrollToEnd()

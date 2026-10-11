@@ -16,6 +16,7 @@ function makeState(): PrinterState {
 		font: 0,
 		rightSpacing: 0,
 		tabStops: defaultTabStops,
+		lineSpacing: null,
 		qrModel: 2,
 		qrModuleSize: 3,
 		qrErrorCorrection: 'L',
@@ -120,6 +121,7 @@ describe('parseEscPos', () => {
 			leftMargin: 0,
 			printAreaWidth: 0,
 			tabStops: defaultTabStops,
+			lineSpacing: null,
 		})
 	})
 
@@ -140,6 +142,7 @@ describe('parseEscPos', () => {
 			leftMargin: 0,
 			printAreaWidth: 0,
 			tabStops: defaultTabStops,
+			lineSpacing: null,
 		})
 	})
 
@@ -156,7 +159,7 @@ describe('parseEscPos', () => {
 		const command = new Uint8Array([0x1b, 0x64, 0x03, 0x41])
 		const result = await parseEscPos(command, makeState())
 		expect(result).toEqual({
-			data: { type: 'command', name: 'Print and Feed Lines', details: { lines: 3 } },
+			data: { type: 'command', name: 'Print and Feed Lines', details: { lines: 3, lineSpacing: null } },
 			consumedBytes: 3,
 		})
 	})
@@ -223,10 +226,14 @@ describe('parseEscPos', () => {
 		const state = makeState()
 		const result = await parseEscPos(new Uint8Array([0x1b, 0x44, 10, 20, 0x00, 0x41]), state)
 		expect(result).toEqual({
-			data: { type: 'command', name: 'Set Horizontal Tab Positions', details: { stops: [10, 20] } },
+			data: {
+				type: 'command',
+				name: 'Set Horizontal Tab Positions',
+				details: { stops: [10, 20], positions: [120, 240] },
+			},
 			consumedBytes: 5,
 		})
-		expect(state.tabStops).toEqual([10, 20])
+		expect(state.tabStops).toEqual([120, 240])
 	})
 
 	it('Set Horizontal Tab Positions (ESC D NUL) clears all stops', async () => {
@@ -241,6 +248,113 @@ describe('parseEscPos', () => {
 		const result = await parseEscPos(new Uint8Array([0x1b, 0x44, 10, 20]), state)
 		expect(result).toEqual({ data: null, consumedBytes: 0 })
 		expect(state.tabStops).toEqual(defaultTabStops)
+	})
+
+	it('Set Horizontal Tab Positions (ESC D) uses the character width at that moment', async () => {
+		const state = makeState()
+		await parseEscPos(new Uint8Array([0x1b, 0x4d, 0x01]), state) // Font B, 9 dots
+		await parseEscPos(new Uint8Array([0x1b, 0x20, 0x01]), state) // + 1 dot spacing
+		await parseEscPos(new Uint8Array([0x1d, 0x21, 0x10]), state) // double width
+		await parseEscPos(new Uint8Array([0x1b, 0x44, 4, 0x00]), state)
+		expect(state.tabStops).toEqual([80])
+		await parseEscPos(new Uint8Array([0x1b, 0x40]), state)
+		expect(state.tabStops[0]).toBe(96)
+	})
+
+	it('Line spacing (ESC 3, ESC 2)', async () => {
+		const state = makeState()
+		await parseEscPos(new Uint8Array([0x1b, 0x33, 0x18]), state)
+		expect(state.lineSpacing).toBe(24)
+		const result = await parseEscPos(new Uint8Array([0x0a]), state)
+		expect(result.data).toMatchObject({ content: '\n', lineSpacing: 24 })
+		await parseEscPos(new Uint8Array([0x1b, 0x32]), state)
+		expect(state.lineSpacing).toBe(null)
+	})
+
+	it('Print and Feed Lines (ESC d) carries the line spacing', async () => {
+		const state = makeState()
+		await parseEscPos(new Uint8Array([0x1b, 0x33, 40]), state)
+		const result = await parseEscPos(new Uint8Array([0x1b, 0x64, 2]), state)
+		expect(result.data).toEqual({
+			type: 'command',
+			name: 'Print and Feed Lines',
+			details: { lines: 2, lineSpacing: 40 },
+		})
+	})
+
+	it('Relative print position (ESC \\) is signed', async () => {
+		const forward = await parseEscPos(new Uint8Array([0x1b, 0x5c, 0x10, 0x00]), makeState())
+		expect(forward.data).toMatchObject({ details: { offset: 16 } })
+		const backward = await parseEscPos(new Uint8Array([0x1b, 0x5c, 0xf0, 0xff]), makeState())
+		expect(backward.data).toMatchObject({ details: { offset: -16 } })
+	})
+
+	it('Page mode commands', async () => {
+		const state = makeState()
+		const names = []
+		for (const bytes of [
+			[0x1b, 0x4c],
+			[0x1b, 0x57, 0, 0, 10, 0, 0x40, 0x02, 0xc8, 0x00],
+			[0x1b, 0x54, 0x31],
+			[0x1d, 0x24, 0x20, 0x00],
+			[0x1d, 0x5c, 0xf8, 0xff],
+			[0x1b, 0x0c],
+			[0x18],
+			[0x0c],
+			[0x1b, 0x53],
+		]) {
+			const result = await parseEscPos(new Uint8Array(bytes), state)
+			expect(result.consumedBytes).toBe(bytes.length)
+			names.push(result.data)
+		}
+		expect(names).toEqual([
+			{ type: 'command', name: 'Select Page Mode' },
+			{ type: 'command', name: 'Set Page Area', details: { x: 0, y: 10, width: 576, height: 200 } },
+			{ type: 'command', name: 'Select Print Direction', details: { direction: 1 } },
+			{ type: 'command', name: 'Set Absolute Vertical Position', details: { position: 32 } },
+			{ type: 'command', name: 'Set Relative Vertical Position', details: { offset: -8 } },
+			{ type: 'command', name: 'Print Page' },
+			{ type: 'command', name: 'Cancel Page Data' },
+			{ type: 'command', name: 'Form Feed' },
+			{ type: 'command', name: 'Select Standard Mode' },
+		])
+	})
+
+	it('Parameters of non-rendering commands do not leak into text', async () => {
+		const transformer = new EscPosTransformer()
+		const blocks: ParsedEscPosBlock[] = []
+		const controller = { enqueue: (block: ParsedEscPosBlock) => blocks.push(block) } as TransformStreamDefaultController<ParsedEscPosBlock>
+		const bytes = [
+			0x1b, 0x47, 0x41, // ESC G 'A' (double-strike)
+			0x1b, 0x52, 0x42, // ESC R 'B' (international set)
+			0x1b, 0x63, 0x35, 0x43, // ESC c 5 'C' (panel buttons)
+			0x1d, 0x48, 0x44, // GS H 'D' (HRI position)
+			0x1d, 0x50, 0x45, 0x46, // GS P 'E' 'F' (motion units)
+			0x1c, 0x70, 0x47, 0x48, // FS p 'G' 'H' (NV image)
+			0x1b, 0x28, 0x41, 0x02, 0x00, 0x49, 0x4a, // ESC ( A pL pH 'I' 'J' (beeper)
+			0x1b, 0x26, 0x02, 0x41, 0x41, 0x01, 0x4b, 0x4c, // ESC & y=2 'A'..'A' x=1 'K' 'L'
+			0x10, 0x04, 0x01, // DLE EOT 1 (status request)
+			0x00, 0x0e, // NUL, SO
+			0x4f, 0x4b, // 'OK'
+		]
+		await transformer.transform(new Uint8Array(bytes), controller)
+		const text = blocks.filter((block) => block.type === 'text')
+		expect(text.map((block) => block.type === 'text' && block.content)).toEqual(['OK'])
+	})
+
+	it('Barcode format A waits for its NUL, format B uses its length byte', async () => {
+		const partial = await parseEscPos(new Uint8Array([0x1d, 0x6b, 0x04, 0x31, 0x32]), makeState())
+		expect(partial).toEqual({ data: null, consumedBytes: 0 })
+		const formatA = await parseEscPos(new Uint8Array([0x1d, 0x6b, 0x04, 0x31, 0x32, 0x00, 0x41]), makeState())
+		expect(formatA).toEqual({
+			data: { type: 'command', name: 'Print Barcode', details: { barcodeType: 4, barcodeData: '12' } },
+			consumedBytes: 6,
+		})
+		const formatB = await parseEscPos(new Uint8Array([0x1d, 0x6b, 0x49, 0x03, 0x41, 0x00, 0x42, 0x43]), makeState())
+		expect(formatB).toEqual({
+			data: { type: 'command', name: 'Print Barcode', details: { barcodeType: 73, barcodeData: 'A\u0000B' } },
+			consumedBytes: 7,
+		})
 	})
 
 	it('Text blocks carry the layout state', async () => {
@@ -350,6 +464,13 @@ describe('parseEscPos', () => {
 		expect(img.width).toBeGreaterThan(0)
 		expect(img.height).toBeGreaterThan(0)
 		expect(img.base64.startsWith('data:image/png;base64,')).toBe(true)
+	})
+
+	it('Images carry the alignment', async () => {
+		const center = new Uint8Array([0x1b, 0x61, 0x01])
+		const blocks = await collectFromTransformer([center, buildQrSequence('https://example.com')])
+		const image = blocks.find((b) => b.type === 'image')
+		expect(image).toMatchObject({ alignment: Alignment.Center })
 	})
 
 	it('QR Code split across chunks still emits one image', async () => {
