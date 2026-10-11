@@ -208,7 +208,8 @@ export async function parseEscPos(
 						break
 					case 0x45: // E - Set emphasized mode
 						if (command.length >= 3) {
-							const emphasized = command[2] !== 0
+							// Only the lowest bit counts, so ASCII '0' and '1' work too.
+							const emphasized = (command[2] & 0x01) !== 0
 							state.emphasized = emphasized
 							parsedBlock = {
 								type: 'command',
@@ -222,7 +223,8 @@ export async function parseEscPos(
 						break
 					case 0x2d: // - - Set underline mode
 						if (command.length >= 3) {
-							const underline = command[2]
+							// 0/1/2 or ASCII '0'/'1'/'2': off, 1-dot or 2-dot underline.
+							const underline = Math.min(command[2] & 0x03, 2)
 							state.underline = underline
 							parsedBlock = {
 								type: 'command',
@@ -327,6 +329,10 @@ export async function parseEscPos(
 					case 0x21: // ! - Set Font Size/Style
 						if (command.length >= 3) {
 							const fontByte = command[2]
+							state.emphasized = (fontByte & 0x08) !== 0
+							state.charHeight = fontByte & 0x10 ? 2 : 1
+							state.charWidth = fontByte & 0x20 ? 2 : 1
+							state.underline = fontByte & 0x80 ? 1 : 0
 							parsedBlock = {
 								type: 'command',
 								name: 'Set Font',
@@ -550,7 +556,8 @@ export async function parseEscPos(
 						break
 					case 0x42: // B - Turn white/black reverse printing on/off
 						if (command.length >= 3) {
-							const reverse = command[2] !== 0
+							// Only the lowest bit counts, so ASCII '0' and '1' work too.
+							const reverse = (command[2] & 0x01) !== 0
 							state.reversePrinting = reverse
 							parsedBlock = {
 								type: 'command',
