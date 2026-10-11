@@ -10,6 +10,15 @@ printer. This tool is designed for developers who need to test point-of-sale
 - **ESC/POS Support:** Receives and processes raw ESC/POS commands via a TCP socket.
 - **Web-Based Rendering:** Renders the print output in a real-time web interface.
 
+## Screenshots
+
+Print jobs rendered in the web interface, laid out like on an 80 mm printer
+(48 columns of Font A):
+
+| Receipt | Formatting |
+|---|---|
+| <img src="docs/screenshots/receipt.png" alt="A sample café receipt with a centered header, item and price columns, a double-height total, a QR code and a reversed thank-you line" width="400"> | <img src="docs/screenshots/formatting.png" alt="Bold, underlined, reversed, double-width and double-height text, Font B, alignment, tab stops and line wrapping" width="400"> |
+
 ## Packages
 
 | Package | Description |
