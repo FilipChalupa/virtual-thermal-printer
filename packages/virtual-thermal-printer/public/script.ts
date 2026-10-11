@@ -147,6 +147,18 @@ let page: Page | null = null
 // width and 831 dots (about 104 mm) high.
 const defaultPageHeight = 831
 
+// ESC e feeds the paper back, so the next element overlaps the ones above
+// it by that many dots. Margin percentages refer to the paper width.
+let reverseFeed = 0
+
+function appendToPaper(element: HTMLElement) {
+	if (reverseFeed > 0) {
+		element.style.marginTop = `${-(reverseFeed / printerWidth) * 100}%`
+		reverseFeed = 0
+	}
+	paperContent.appendChild(element)
+}
+
 function fontOf(style: EscPosText) {
 	return fonts[style.font] ?? fonts[0]
 }
@@ -156,18 +168,27 @@ function lineSpacing(style: { lineSpacing: number | null }): number {
 }
 
 // A printed line advances by the line spacing, or by the character height
-// when the characters are taller.
+// when the characters are taller. Characters rotated 90° (ESC V) lie on
+// their side, and double width and height enlarge them the other way round.
 function rowHeight(style: EscPosText): number {
-	return Math.max(lineSpacing(style), fontOf(style).cellHeight * style.charHeight)
+	const { cellWidth, cellHeight } = fontOf(style)
+	return Math.max(
+		lineSpacing(style),
+		style.rotated ? cellWidth * style.charWidth : cellHeight * style.charHeight,
+	)
 }
 
 // ESC SP spacing follows each character and doubles with double width.
 function cellWidth(style: EscPosText): number {
-	return (fontOf(style).cellWidth + style.rightSpacing) * style.charWidth
+	const { cellWidth, cellHeight } = fontOf(style)
+	return style.rotated
+		? (cellHeight + style.rightSpacing) * style.charHeight
+		: (cellWidth + style.rightSpacing) * style.charWidth
 }
 
+// Double strike (ESC G) prints like emphasized on thermal printers.
 function segmentFont(style: EscPosText): string {
-	return `${style.emphasized ? 'bold ' : ''}${
+	return `${style.emphasized || style.doubleStrike ? 'bold ' : ''}${
 		fontOf(style).fontSize * style.charHeight
 	}px monospace`
 }
@@ -232,7 +253,7 @@ function printPage(target: Page) {
 	const printed = document.createElement('canvas')
 	printed.width = target.canvas.width
 	printed.height = target.canvas.height
-	paperContent.appendChild(printed)
+	appendToPaper(printed)
 	Promise.all(target.pendingImages).then(() => {
 		printed.getContext('2d')?.drawImage(target.canvas, 0, 0)
 	})
@@ -274,7 +295,7 @@ function startRow(style: EscPosText): TextRow {
 		position,
 	}
 	if (!page) {
-		paperContent.appendChild(row.canvas)
+		appendToPaper(row.canvas)
 	}
 	openRow = row
 	pendingPosition = null
@@ -311,6 +332,11 @@ function drawRow(row: TextRow) {
 		: 0
 
 	ctx.textAlign = 'left'
+	if (row.style.upsideDown) {
+		// ESC { turns the whole line by 180°, so it reads from the other end.
+		ctx.translate(row.canvas.width, row.canvas.height)
+		ctx.rotate(Math.PI)
+	}
 	row.segments.forEach(({ text, style, x: segmentX }) => {
 		const x = row.left + offset + segmentX
 		const cell = cellWidth(style)
@@ -325,18 +351,35 @@ function drawRow(row: TextRow) {
 		}
 		// Each glyph is stretched to its font's cell. Double-width characters
 		// are the same glyphs stretched to two cells.
-		const scale = (fontOf(style).cellWidth * style.charWidth) /
-			ctx.measureText('0').width
+		const glyphWidth = fontOf(style).cellWidth * style.charWidth
+		const scale = glyphWidth / ctx.measureText('0').width
+		const glyph = ctx.measureText('Mg')
+		const glyphCenter =
+			(glyph.fontBoundingBoxAscent - glyph.fontBoundingBoxDescent) / 2
 		;[...text].forEach((char, index) => {
 			ctx.save()
-			ctx.translate(x + index * cell, baseline)
-			ctx.scale(scale, 1)
-			ctx.fillText(char, 0, 0)
+			if (style.rotated) {
+				// Turned a quarter clockwise around the middle of its cell.
+				ctx.translate(
+					x + index * cell +
+						(fontOf(style).cellHeight * style.charHeight) / 2,
+					row.canvas.height / 2,
+				)
+				ctx.rotate(Math.PI / 2)
+				ctx.scale(scale, 1)
+				ctx.fillText(char, -glyphWidth / 2 / scale, glyphCenter)
+			} else {
+				ctx.translate(x + index * cell, baseline)
+				ctx.scale(scale, 1)
+				ctx.fillText(char, 0, 0)
+			}
 			ctx.restore()
 		})
 		// ESC - selects a 1 or 2 dot underline. Like on Epson printers, it is
-		// not printed under reversed text.
-		if (style.underline > 0 && !style.reversePrinting) {
+		// not printed under reversed or rotated text.
+		if (
+			style.underline > 0 && !style.reversePrinting && !style.rotated
+		) {
 			ctx.fillRect(
 				x,
 				Math.round(baseline + descent / 2),
@@ -407,7 +450,7 @@ function appendFeed(dots: number) {
 	}
 	const feed = document.createElement('div')
 	feed.style.aspectRatio = `${printerWidth} / ${dots}`
-	paperContent.appendChild(feed)
+	appendToPaper(feed)
 }
 
 function lineFeed(height: number) {
@@ -436,7 +479,7 @@ function appendImage(data: EscPosImage) {
 			: data.alignment === Alignment.Right
 			? 'auto 0'
 			: '0 auto'
-		paperContent.appendChild(img)
+		appendToPaper(img)
 		return
 	}
 	const target = page
@@ -552,6 +595,7 @@ function connectWebSocket(): void {
 		openRow = null
 		pendingPosition = null
 		page = null
+		reverseFeed = 0
 	}
 
 	socket.onmessage = (event: MessageEvent) => {
@@ -598,7 +642,7 @@ function connectWebSocket(): void {
 			} else if (data.name === 'Cut Paper' && !page) {
 				const cutLine = document.createElement('div')
 				cutLine.className = 'cut-line'
-				paperContent.appendChild(cutLine)
+				appendToPaper(cutLine)
 				endRow()
 			} else if (data.name === 'Print and Feed Lines') {
 				// ESC d n: print the row, then feed n lines, so it acts as n LFs.
@@ -611,6 +655,17 @@ function connectWebSocket(): void {
 				}
 				for (let i = 0; i < lines; i++) {
 					lineFeed(spacing)
+				}
+			} else if (data.name === 'Print and Reverse Feed Lines') {
+				// ESC e n: print the row, then feed n lines backwards.
+				const dots = Number(data.details?.lines ?? 0) * lineSpacing({
+					lineSpacing: (data.details?.lineSpacing as number | null) ?? null,
+				})
+				endRow()
+				if (page) {
+					page.y = Math.max(page.y - dots, 0)
+				} else {
+					reverseFeed += dots
 				}
 			} else if (data.name === 'Print and Feed Paper') {
 				// ESC J n: print the row, then feed n motion units, taken as dots
