@@ -133,7 +133,12 @@ function connectWebSocket(): void {
 			img.height = data.height
 			paperContent.appendChild(img)
 		} else if (isEscPosText(data)) {
-			data.content.split('\n').forEach((line) => {
+			// Lone LF from the decoder is content '\n'. String#split('\n') yields
+			// ['', ''] for that, which would insert two <br>s (double line spacing).
+			const lines = /^\n+$/.test(data.content)
+				? Array.from({ length: data.content.length }, () => '')
+				: data.content.split('\n')
+			lines.forEach((line) => {
 				if (line === '') {
 					paperContent.appendChild(document.createElement('br'))
 					return
