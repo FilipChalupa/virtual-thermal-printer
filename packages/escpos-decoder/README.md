@@ -135,6 +135,11 @@ interface EscPosText {
 	charWidth: number // 1 to 8
 	charHeight: number // 1 to 8
 	reversePrinting: boolean
+	font: number // 0 = Font A (12×24 dots), 1 = Font B (9×17 dots)
+	rightSpacing: number // extra dots after each character
+	leftMargin: number // dots from the left edge
+	printAreaWidth: number // dots from the left margin, 0 = rest of the line
+	tabStops: number[] // character columns, every 8 by default
 }
 
 interface EscPosCommand {
@@ -165,12 +170,13 @@ interface EscPosImage {
 | Reverse printing | `GS B` | command, applied to following text |
 | Character size | `GS !` | command, applied to following text |
 | Font size and style | `ESC !` | command, emphasis, double size and underline applied to following text |
-| Select character font | `ESC M` | command |
+| Select character font | `ESC M` | command, applied to following text |
 | Select character code table | `ESC t` | command |
-| Left margin | `GS L` | command |
-| Print area width | `GS W` | command |
+| Left margin | `GS L` | command, applied to following text |
+| Print area width | `GS W` | command, applied to following text |
 | Absolute print position | `ESC $` | command |
-| Right-side character spacing | `ESC SP` | command |
+| Right-side character spacing | `ESC SP` | command, applied to following text |
+| Horizontal tab positions | `ESC D` | command, applied to following text |
 | Raster bit image | `GS v 0` | image |
 | Bit image | `ESC *` | command (consumed, not rendered) |
 | QR code | `GS ( k` model, size, error correction, store, print | command per function, image on print |

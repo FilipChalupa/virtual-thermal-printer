@@ -14,10 +14,35 @@ export interface PrinterState {
 	emphasized: boolean
 	underline: number
 	reversePrinting: boolean
+	font: number
+	rightSpacing: number
+	tabStops: number[]
 	qrModel: number
 	qrModuleSize: number
 	qrErrorCorrection: QrErrorCorrectionLevel
 	qrData: string
+}
+
+// Power-on tab stops: every 8 characters, 32 stops.
+export const defaultTabStops = Array.from({ length: 32 }, (_, i) => (i + 1) * 8)
+
+// ESC D accepts at most 32 stops before its NUL terminator.
+const maxTabStops = 32
+
+function textStyle(state: PrinterState): Omit<EscPosText, 'type' | 'content'> {
+	return {
+		alignment: state.alignment,
+		emphasized: state.emphasized,
+		underline: state.underline,
+		charWidth: state.charWidth,
+		charHeight: state.charHeight,
+		reversePrinting: state.reversePrinting,
+		font: state.font,
+		rightSpacing: state.rightSpacing,
+		leftMargin: state.leftMargin,
+		printAreaWidth: state.printAreaWidth,
+		tabStops: state.tabStops,
+	}
 }
 
 export interface ParsedCommandResult {
@@ -117,16 +142,7 @@ export async function parseEscPos(
 		if (textBuffer.length > 0) {
 			const content = iconv.decode(Buffer.from(textBuffer), 'CP852')
 			textBuffer = []
-			return {
-				type: 'text',
-				content: content,
-				alignment: state.alignment,
-				emphasized: state.emphasized,
-				underline: state.underline,
-				charWidth: state.charWidth,
-				charHeight: state.charHeight,
-				reversePrinting: state.reversePrinting,
-			}
+			return { type: 'text', content: content, ...textStyle(state) }
 		}
 		return null
 	}
@@ -160,16 +176,7 @@ export async function parseEscPos(
 
 	switch (firstByte) {
 		case 0x0a: // LF
-			parsedBlock = {
-				type: 'text',
-				content: '\n',
-				alignment: state.alignment,
-				emphasized: state.emphasized,
-				underline: state.underline,
-				charWidth: state.charWidth,
-				charHeight: state.charHeight,
-				reversePrinting: state.reversePrinting,
-			}
+			parsedBlock = { type: 'text', content: '\n', ...textStyle(state) }
 			consumedBytes = 1
 			break
 		case 0x1b: // ESC
@@ -185,6 +192,9 @@ export async function parseEscPos(
 						state.emphasized = false
 						state.underline = 0
 						state.reversePrinting = false
+						state.font = 0
+						state.rightSpacing = 0
+						state.tabStops = defaultTabStops
 						state.qrModel = 2
 						state.qrModuleSize = 3
 						state.qrErrorCorrection = 'L'
@@ -239,6 +249,8 @@ export async function parseEscPos(
 					case 0x4d: // M - Select character font
 						if (command.length >= 3) {
 							const font = command[2]
+							// 0/1 or ASCII '0'/'1': Font A or B. Font C and up fall back to A.
+							state.font = (font & 0x0f) === 1 ? 1 : 0
 							parsedBlock = {
 								type: 'command',
 								name: 'Select Character Font',
@@ -252,6 +264,7 @@ export async function parseEscPos(
 					case 0x20: // SP - Set right-side character spacing
 						if (command.length >= 3) {
 							const spacing = command[2]
+							state.rightSpacing = spacing
 							parsedBlock = {
 								type: 'command',
 								name: 'Set Right-Side Character Spacing',
@@ -329,6 +342,7 @@ export async function parseEscPos(
 					case 0x21: // ! - Set Font Size/Style
 						if (command.length >= 3) {
 							const fontByte = command[2]
+							state.font = fontByte & 0x01
 							state.emphasized = (fontByte & 0x08) !== 0
 							state.charHeight = fontByte & 0x10 ? 2 : 1
 							state.charWidth = fontByte & 0x20 ? 2 : 1
@@ -351,6 +365,27 @@ export async function parseEscPos(
 						}
 						consumedBytes = 2
 						break
+					case 0x44: { // D - Set horizontal tab positions: ESC D n1 ... nk NUL
+						const terminator = command.subarray(2, 2 + maxTabStops + 1)
+							.indexOf(0x00)
+						if (terminator === -1) {
+							if (command.length < 2 + maxTabStops + 1) {
+								return { data: null, consumedBytes: 0 }
+							}
+							// No NUL within the limit: take 32 stops and resume after them.
+							state.tabStops = [...command.subarray(2, 2 + maxTabStops)]
+							consumedBytes = 2 + maxTabStops
+						} else {
+							state.tabStops = [...command.subarray(2, 2 + terminator)]
+							consumedBytes = 2 + terminator + 1
+						}
+						parsedBlock = {
+							type: 'command',
+							name: 'Set Horizontal Tab Positions',
+							details: { stops: state.tabStops },
+						}
+						break
+					}
 					case 0x4a: // J - Print and feed paper
 						if (command.length >= 3) {
 							const n = command[2]
@@ -759,6 +794,9 @@ export class EscPosTransformer
 			emphasized: false,
 			underline: 0,
 			reversePrinting: false,
+			font: 0,
+			rightSpacing: 0,
+			tabStops: defaultTabStops,
 			qrModel: 2,
 			qrModuleSize: 3,
 			qrErrorCorrection: 'L',
