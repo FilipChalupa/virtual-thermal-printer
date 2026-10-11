@@ -99,6 +99,8 @@ const placeholderText = document.getElementById(
 ) as HTMLParagraphElement
 
 let isFirstMessage = true
+// True while the last rendered element is a text row that no LF has ended yet.
+let isLineOpen = false
 
 function connectWebSocket(): void {
 	const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
@@ -113,6 +115,7 @@ function connectWebSocket(): void {
 		}
 		placeholderText.classList.remove('is-hidden')
 		isFirstMessage = true
+		isLineOpen = false
 	}
 
 	socket.onmessage = (event: MessageEvent) => {
@@ -132,10 +135,23 @@ function connectWebSocket(): void {
 			img.width = data.width
 			img.height = data.height
 			paperContent.appendChild(img)
+			isLineOpen = false
 		} else if (isEscPosText(data)) {
-			data.content.split('\n').forEach((line) => {
+			const fontSize = baseFontSize * data.charHeight
+			data.content.split(/(\n)/).forEach((line) => {
 				if (line === '') {
-					paperContent.appendChild(document.createElement('br'))
+					return
+				}
+				if (line === '\n') {
+					// Text rows are block elements, so an LF that ends one needs no
+					// extra element. Only an LF with no text before it feeds a blank
+					// line, scaled exactly like a text row canvas of the current height.
+					if (!isLineOpen) {
+						const blankLine = document.createElement('div')
+						blankLine.style.aspectRatio = `${printerWidth} / ${fontSize * lineHeight}`
+						paperContent.appendChild(blankLine)
+					}
+					isLineOpen = false
 					return
 				}
 
@@ -145,7 +161,6 @@ function connectWebSocket(): void {
 					return
 				}
 
-				const fontSize = baseFontSize * data.charHeight
 				const font = `${data.emphasized ? 'bold ' : ''}${fontSize}px monospace`
 				ctx.font = font
 
@@ -182,6 +197,7 @@ function connectWebSocket(): void {
 
 				ctx.fillText(line, x, fontSize)
 				paperContent.appendChild(canvas)
+				isLineOpen = true
 			})
 		} else if (isEscPosCommand(data)) {
 			// Handle 'Beep' command
@@ -192,6 +208,7 @@ function connectWebSocket(): void {
 				const cutLine = document.createElement('div')
 				cutLine.className = 'cut-line'
 				paperContent.appendChild(cutLine)
+				isLineOpen = false
 			}
 		}
 		linearScrollToEnd()
