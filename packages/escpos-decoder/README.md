@@ -164,7 +164,7 @@ interface EscPosImage {
 | Underline mode | `ESC -` | command, applied to following text |
 | Reverse printing | `GS B` | command, applied to following text |
 | Character size | `GS !` | command, applied to following text |
-| Font size and style | `ESC !` | command |
+| Font size and style | `ESC !` | command, emphasis, double size and underline applied to following text |
 | Select character font | `ESC M` | command |
 | Select character code table | `ESC t` | command |
 | Left margin | `GS L` | command |

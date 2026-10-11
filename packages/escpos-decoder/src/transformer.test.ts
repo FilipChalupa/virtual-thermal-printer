@@ -154,6 +154,38 @@ describe('parseEscPos', () => {
 		expect(result).toEqual({ data: null, consumedBytes: 0 })
 	})
 
+	it('Set Underline Mode accepts ASCII parameters', async () => {
+		for (const [byte, expected] of [[0x00, 0], [0x01, 1], [0x02, 2], [0x30, 0], [0x31, 1], [0x32, 2]]) {
+			const state = makeState()
+			await parseEscPos(new Uint8Array([0x1b, 0x2d, byte]), state)
+			expect(state.underline).toBe(expected)
+		}
+	})
+
+	it('Set Emphasized Mode uses only the lowest bit', async () => {
+		const state = makeState()
+		await parseEscPos(new Uint8Array([0x1b, 0x45, 0x31]), state)
+		expect(state.emphasized).toBe(true)
+		await parseEscPos(new Uint8Array([0x1b, 0x45, 0x30]), state)
+		expect(state.emphasized).toBe(false)
+	})
+
+	it('Set Reverse Printing uses only the lowest bit', async () => {
+		const state = makeState()
+		await parseEscPos(new Uint8Array([0x1d, 0x42, 0x31]), state)
+		expect(state.reversePrinting).toBe(true)
+		await parseEscPos(new Uint8Array([0x1d, 0x42, 0x30]), state)
+		expect(state.reversePrinting).toBe(false)
+	})
+
+	it('Set Font (ESC !) updates style and size', async () => {
+		const state = makeState()
+		await parseEscPos(new Uint8Array([0x1b, 0x21, 0x08 | 0x10 | 0x20 | 0x80]), state)
+		expect(state).toMatchObject({ emphasized: true, charHeight: 2, charWidth: 2, underline: 1 })
+		await parseEscPos(new Uint8Array([0x1b, 0x21, 0x00]), state)
+		expect(state).toMatchObject({ emphasized: false, charHeight: 1, charWidth: 1, underline: 0 })
+	})
+
 	it('Set Char Size', async () => {
 		const command = new Uint8Array([0x1d, 0x21, 0x11])
 		const state = makeState()
