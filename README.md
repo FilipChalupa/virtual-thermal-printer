@@ -17,7 +17,7 @@ Print jobs rendered in the web interface, laid out like on an 80 mm printer
 
 | Receipt | Formatting |
 |---|---|
-| <img src="docs/screenshots/receipt.png" alt="A sample café receipt with a centered header, item and price columns, a double-height total, a QR code and a reversed thank-you line" width="400"> | <img src="docs/screenshots/formatting.png" alt="Bold, underlined, reversed, double-width and double-height text, Font B, alignment, tab stops and line wrapping" width="400"> |
+| <img src="docs/screenshots/receipt.png" alt="A sample café receipt with a centered header, item and price columns, a double-height total, a QR code and a reversed thank-you line" width="400"> | <img src="docs/screenshots/formatting.png" alt="Bold, underlined, reversed, double-width and double-height text, Font B, alignment, tab stops, line wrapping and an EAN-13 barcode" width="400"> |
 
 ## Packages
 
