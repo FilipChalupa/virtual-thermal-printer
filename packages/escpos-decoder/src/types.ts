@@ -23,8 +23,10 @@ export interface EscPosText {
 	leftMargin: number
 	/** Printable width in dots from the left margin (GS W); 0 = rest of the line. */
 	printAreaWidth: number
-	/** Horizontal tab stops as character columns from the line start (ESC D). */
+	/** Horizontal tab stops in dots from the line start (ESC D). */
 	tabStops: number[]
+	/** Line spacing in dots (ESC 3); null = the printer's default (ESC 2). */
+	lineSpacing: number | null
 }
 
 export interface EscPosCommand {

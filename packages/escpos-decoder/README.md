@@ -139,7 +139,8 @@ interface EscPosText {
 	rightSpacing: number // extra dots after each character
 	leftMargin: number // dots from the left edge
 	printAreaWidth: number // dots from the left margin, 0 = rest of the line
-	tabStops: number[] // character columns, every 8 by default
+	tabStops: number[] // dots from the line start, every 8 Font A characters by default
+	lineSpacing: number | null // dots, null = the printer's default
 }
 
 interface EscPosCommand {
@@ -177,6 +178,10 @@ interface EscPosImage {
 | Absolute print position | `ESC $` | command |
 | Right-side character spacing | `ESC SP` | command, applied to following text |
 | Horizontal tab positions | `ESC D` | command, applied to following text |
+| Line spacing | `ESC 2`, `ESC 3` | command, applied to following text |
+| Relative print position | `ESC \` | command |
+| Page mode | `ESC L`, `ESC S`, `ESC W`, `ESC T`, `GS $`, `GS \`, `FF`, `ESC FF`, `CAN` | command per function |
+| Real-time requests | `DLE EOT`, `DLE ENQ`, `DLE DC4` | command |
 | Raster bit image | `GS v 0` | image |
 | Bit image | `ESC *` | command (consumed, not rendered) |
 | QR code | `GS ( k` model, size, error correction, store, print | command per function, image on print |
@@ -185,6 +190,12 @@ interface EscPosImage {
 | Beep | `ESC B` | command |
 | Cash drawer pulse | `ESC p` | command |
 | Cancel Chinese character mode | `FS .` | command |
+
+Other common commands that do not affect the printed output (for example
+`ESC G`, `ESC R`, `GS H`, `GS P`, `FS p` and the `ESC (` / `FS (` families) are
+consumed with their parameters and emitted as commands, so their parameter bytes
+never end up in text. Control bytes that are not commands (such as `NUL`) are
+emitted as `Unknown Control Byte`.
 
 Any other `ESC`, `FS` or `GS` sequence is emitted as an `Unknown ... Command` block with the offending byte in `details`.
 
