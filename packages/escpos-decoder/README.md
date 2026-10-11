@@ -157,6 +157,7 @@ interface EscPosImage {
 |---|---|---|
 | Initialize printer | `ESC @` | command, resets formatting state |
 | Print and feed paper | `ESC J` | command |
+| Print and feed lines | `ESC d` | command |
 | Cut paper | `GS V`, `ESC i` | command |
 | Set alignment | `ESC a` | command, applied to following text |
 | Emphasized mode | `ESC E` | command, applied to following text |

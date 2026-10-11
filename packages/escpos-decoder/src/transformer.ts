@@ -358,6 +358,19 @@ export async function parseEscPos(
 							return { data: null, consumedBytes: 0 }
 						}
 						break
+					case 0x64: // d - Print and feed n lines
+						if (command.length >= 3) {
+							const n = command[2]
+							parsedBlock = {
+								type: 'command',
+								name: 'Print and Feed Lines',
+								details: { lines: n },
+							}
+							consumedBytes = 3
+						} else {
+							return { data: null, consumedBytes: 0 }
+						}
+						break
 					case 0x74: // t - Select character code table
 						if (command.length >= 3) {
 							const n = command[2]
