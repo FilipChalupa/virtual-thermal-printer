@@ -100,48 +100,87 @@ const placeholderText = document.getElementById(
 
 let isFirstMessage = true
 
-// Font A on a 576-dot head prints 12-dot-wide cells, 48 columns per line.
-// Text is laid out on that grid so wrapping and space-padded columns match
-// the paper.
-const columns = 48
-const cellWidth = printerWidth / columns
-const baseFontSize = 20 // Glyph size in dots for a single-height character
+// Character cells in dots on a 576-dot head: Font A is 12 × 24 (48 columns),
+// Font B 9 × 17 (64 columns). Glyphs are stretched onto these cells so
+// wrapping and space-padded columns match the paper.
+const fonts = [
+	{ cellWidth: 12, fontSize: 20 },
+	{ cellWidth: 9, fontSize: 14 },
+]
 const lineHeight = 1.5 // Row pitch relative to the font, with room for descenders
 
 interface TextSegment {
 	text: string
 	style: EscPosText
+	x: number // Dots from the start of the line
 }
 
 interface TextRow {
 	canvas: HTMLCanvasElement
 	segments: TextSegment[]
+	style: EscPosText // Style at the start of the line, which sets its layout
+	left: number // Left margin in dots
+	area: number // Printable width in dots from the left margin
+	position: number // Next print position in dots from the start of the line
 }
 
 // The row being printed. Text blocks that arrive before it ends (style
 // changes mid-line) are appended to it. An LF, paper feed, image or cut ends
 // it, and the next text starts a new row.
 let openRow: TextRow | null = null
-// Character height of the latest text, used for line feeds sent as commands.
-let lastCharHeight = 1
+// ESC $ received before any text on the line, applied when the row starts.
+let pendingPosition: number | null = null
+// Blank line height for the latest text, used for line feeds sent as commands.
+const defaultRowHeight = Math.floor(fonts[0].fontSize * lineHeight)
+let lastRowHeight = defaultRowHeight
+
+function fontOf(style: EscPosText) {
+	return fonts[style.font] ?? fonts[0]
+}
 
 // Canvas sizes are whole pixels, so blank lines use the same rounded height.
-function rowHeight(charHeight: number): number {
-	return Math.floor(baseFontSize * charHeight * lineHeight)
+function rowHeight(style: EscPosText): number {
+	return Math.floor(fontOf(style).fontSize * style.charHeight * lineHeight)
+}
+
+// ESC SP spacing follows each character and doubles with double width.
+function cellWidth(style: EscPosText): number {
+	return (fontOf(style).cellWidth + style.rightSpacing) * style.charWidth
 }
 
 function segmentFont(style: EscPosText): string {
 	return `${style.emphasized ? 'bold ' : ''}${
-		baseFontSize * style.charHeight
+		fontOf(style).fontSize * style.charHeight
 	}px monospace`
 }
 
-function segmentColumns({ text, style }: TextSegment): number {
-	return text.length * style.charWidth
+function endRow() {
+	openRow = null
+	pendingPosition = null
 }
 
-function rowColumns(row: TextRow): number {
-	return row.segments.reduce((sum, segment) => sum + segmentColumns(segment), 0)
+function startRow(style: EscPosText): TextRow {
+	// Out-of-range margins and widths are clamped so at least one cell fits.
+	const left = Math.min(style.leftMargin, printerWidth - cellWidth(style))
+	const area = Math.min(
+		style.printAreaWidth || printerWidth,
+		printerWidth - left,
+	)
+	const position = pendingPosition !== null && pendingPosition <= area
+		? pendingPosition
+		: 0
+	const row: TextRow = {
+		canvas: document.createElement('canvas'),
+		segments: [],
+		style,
+		left,
+		area,
+		position,
+	}
+	paperContent.appendChild(row.canvas)
+	openRow = row
+	pendingPosition = null
+	return row
 }
 
 function drawRow(row: TextRow) {
@@ -150,34 +189,34 @@ function drawRow(row: TextRow) {
 		return
 	}
 
-	const largest = row.segments.reduce((a, b) =>
-		b.style.charHeight > a.style.charHeight ? b : a
-	).style
+	const tallest = row.segments.reduce(
+		(a, { style }) => rowHeight(style) > rowHeight(a) ? style : a,
+		row.style,
+	)
 	// Resizing clears the canvas, so the whole row is redrawn each time.
 	row.canvas.width = printerWidth
-	row.canvas.height = rowHeight(largest.charHeight)
+	row.canvas.height = rowHeight(tallest)
 
-	// Center the largest font's ascent and descent in the row, so descenders
+	// Center the tallest font's ascent and descent in the row, so descenders
 	// are not clipped. Smaller text shares the baseline and sits on the bottom.
-	ctx.font = segmentFont(largest)
+	ctx.font = segmentFont(tallest)
 	const metrics = ctx.measureText('Mg')
 	const ascent = metrics.fontBoundingBoxAscent
 	const descent = metrics.fontBoundingBoxDescent
 	const baseline = Math.round((row.canvas.height + ascent - descent) / 2)
 
-	// Printers apply alignment per line, so the row's first segment decides it.
-	const alignment = row.segments[0].style.alignment
-	const rowWidth = rowColumns(row) * cellWidth
-	let x = alignment === Alignment.Center
-		? (printerWidth - rowWidth) / 2
-		: alignment === Alignment.Right
-		? printerWidth - rowWidth
+	// Printers apply alignment per line, within the print area.
+	const offset = row.style.alignment === Alignment.Center
+		? (row.area - row.position) / 2
+		: row.style.alignment === Alignment.Right
+		? row.area - row.position
 		: 0
 
 	ctx.textAlign = 'left'
-	row.segments.forEach((segment) => {
-		const { text, style } = segment
-		const width = segmentColumns(segment) * cellWidth
+	row.segments.forEach(({ text, style, x: segmentX }) => {
+		const x = row.left + offset + segmentX
+		const cell = cellWidth(style)
+		const width = text.length * cell
 		ctx.font = segmentFont(style)
 		if (style.reversePrinting) {
 			ctx.fillStyle = 'black'
@@ -186,14 +225,17 @@ function drawRow(row: TextRow) {
 		} else {
 			ctx.fillStyle = 'black'
 		}
-		// Stretch the monospace advance to the cell grid. Double-width
-		// characters are the same glyphs stretched to two cells.
-		const advance = ctx.measureText('0').width
-		ctx.save()
-		ctx.translate(x, baseline)
-		ctx.scale((cellWidth * style.charWidth) / advance, 1)
-		ctx.fillText(text, 0, 0)
-		ctx.restore()
+		// Each glyph is stretched to its font's cell. Double-width characters
+		// are the same glyphs stretched to two cells.
+		const scale = (fontOf(style).cellWidth * style.charWidth) /
+			ctx.measureText('0').width
+		;[...text].forEach((char, index) => {
+			ctx.save()
+			ctx.translate(x + index * cell, baseline)
+			ctx.scale(scale, 1)
+			ctx.fillText(char, 0, 0)
+			ctx.restore()
+		})
 		// ESC - selects a 1 or 2 dot underline. Like on Epson printers, it is
 		// not printed under reversed text.
 		if (style.underline > 0 && !style.reversePrinting) {
@@ -204,30 +246,55 @@ function drawRow(row: TextRow) {
 				style.underline,
 			)
 		}
-		x += width
 	})
 }
 
 function appendText(text: string, style: EscPosText) {
-	while (text.length > 0) {
-		const freeColumns = columns - (openRow ? rowColumns(openRow) : 0)
-		const fittingChars = Math.floor(freeColumns / style.charWidth)
-		if (openRow && fittingChars === 0) {
-			// The line is full, so the printer prints it and continues on the next.
-			openRow = null
+	const cell = cellWidth(style)
+	let run = ''
+	let runX = 0
+	const flush = (row: TextRow) => {
+		if (run !== '') {
+			row.segments.push({ text: run, style, x: runX })
+			run = ''
+		}
+	}
+
+	let index = 0
+	while (index < text.length) {
+		const char = text[index]
+		const row = openRow ?? startRow(style)
+		if (char === '\t') {
+			// HT moves to the next tab stop, given in character columns. Past
+			// the print area it fills the line; with no stops set it is ignored.
+			flush(row)
+			if (style.tabStops.length > 0) {
+				const next = style.tabStops
+					.map((column) => column * cell)
+					.find((stop) => stop > row.position)
+				row.position = next === undefined || next > row.area
+					? row.area
+					: next
+			}
+			index++
 			continue
 		}
-		const part = text.slice(0, Math.max(fittingChars, 1))
-		text = text.slice(part.length)
-		if (openRow) {
-			openRow.segments.push({ text: part, style })
-		} else {
-			openRow = {
-				canvas: document.createElement('canvas'),
-				segments: [{ text: part, style }],
-			}
-			paperContent.appendChild(openRow.canvas)
+		if (row.position > 0 && row.position + cell > row.area) {
+			// The line is full, so the printer prints it and continues on the next.
+			flush(row)
+			drawRow(row)
+			endRow()
+			continue
 		}
+		if (run === '') {
+			runX = row.position
+		}
+		run += char
+		row.position += cell
+		index++
+	}
+	if (openRow) {
+		flush(openRow)
 		drawRow(openRow)
 	}
 }
@@ -242,13 +309,14 @@ function appendFeed(dots: number) {
 	paperContent.appendChild(feed)
 }
 
-function lineFeed(charHeight: number) {
+function lineFeed(height: number) {
 	// Text rows are block elements, so an LF that ends one needs no extra
 	// element. Only an LF with no text before it feeds a blank line.
 	if (openRow) {
-		openRow = null
+		endRow()
 	} else {
-		appendFeed(rowHeight(charHeight))
+		pendingPosition = null
+		appendFeed(height)
 	}
 }
 
@@ -265,8 +333,8 @@ function connectWebSocket(): void {
 		}
 		placeholderText.classList.remove('is-hidden')
 		isFirstMessage = true
-		openRow = null
-		lastCharHeight = 1
+		endRow()
+		lastRowHeight = defaultRowHeight
 	}
 
 	socket.onmessage = (event: MessageEvent) => {
@@ -283,14 +351,14 @@ function connectWebSocket(): void {
 			img.width = data.width
 			img.height = data.height
 			paperContent.appendChild(img)
-			openRow = null
+			endRow()
 		} else if (isEscPosText(data)) {
-			lastCharHeight = data.charHeight
+			lastRowHeight = rowHeight(data)
 			// CR is ignored, as on printers without auto line feed. CRLF line
 			// endings would otherwise take up a column before every LF.
 			data.content.replace(/\r/g, '').split(/(\n)/).forEach((part) => {
 				if (part === '\n') {
-					lineFeed(data.charHeight)
+					lineFeed(rowHeight(data))
 				} else if (part !== '') {
 					appendText(part, data)
 				}
@@ -304,24 +372,33 @@ function connectWebSocket(): void {
 				const cutLine = document.createElement('div')
 				cutLine.className = 'cut-line'
 				paperContent.appendChild(cutLine)
-				openRow = null
+				endRow()
 			} else if (data.name === 'Print and Feed Lines') {
 				// ESC d n: print the row, then feed n lines, so it acts as n LFs.
 				const lines = Number(data.details?.lines ?? 0)
 				if (lines === 0) {
-					openRow = null
+					endRow()
 				}
 				for (let i = 0; i < lines; i++) {
-					lineFeed(lastCharHeight)
+					lineFeed(lastRowHeight)
 				}
 			} else if (data.name === 'Print and Feed Paper') {
 				// ESC J n: print the row, then feed n motion units, taken as dots
 				// (1/203 in on a 576-dot head). The printed row already takes up its
 				// own height, so only the rest of the feed is added below it.
 				const dots = Number(data.details?.feed ?? 0)
-				const rowHeight = openRow?.canvas.height ?? 0
-				openRow = null
-				appendFeed(dots - rowHeight)
+				const printedHeight = openRow?.canvas.height ?? 0
+				endRow()
+				appendFeed(dots - printedHeight)
+			} else if (data.name === 'Set Absolute Print Position') {
+				// ESC $ moves the print position, in dots from the start of the line.
+				// Positions past the print area are ignored, as on the printer.
+				const position = Number(data.details?.position ?? 0)
+				if (!openRow) {
+					pendingPosition = position
+				} else if (position <= openRow.area) {
+					openRow.position = position
+				}
 			}
 		}
 		linearScrollToEnd()
