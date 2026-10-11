@@ -100,19 +100,28 @@ const placeholderText = document.getElementById(
 
 let isFirstMessage = true
 
-const baseFontSize = 16 // Base font size in px
-const lineHeight = 1.2
+// Font A on a 576-dot head prints 12-dot-wide cells, 48 columns per line.
+// Text is laid out on that grid so wrapping and space-padded columns match
+// the paper.
+const columns = 48
+const cellWidth = printerWidth / columns
+const baseFontSize = 20 // Glyph size in dots for a single-height character
+const lineHeight = 1.5 // Row pitch relative to the font, with room for descenders
 
 interface TextSegment {
 	text: string
 	style: EscPosText
 }
 
+interface TextRow {
+	canvas: HTMLCanvasElement
+	segments: TextSegment[]
+}
+
 // The row being printed. Text blocks that arrive before it ends (style
 // changes mid-line) are appended to it. An LF, paper feed, image or cut ends
 // it, and the next text starts a new row.
-let openRow: { canvas: HTMLCanvasElement; segments: TextSegment[] } | null =
-	null
+let openRow: TextRow | null = null
 // Character height of the latest text, used for line feeds sent as commands.
 let lastCharHeight = 1
 
@@ -127,28 +136,38 @@ function segmentFont(style: EscPosText): string {
 	}px monospace`
 }
 
-function drawRow(row: { canvas: HTMLCanvasElement; segments: TextSegment[] }) {
+function segmentColumns({ text, style }: TextSegment): number {
+	return text.length * style.charWidth
+}
+
+function rowColumns(row: TextRow): number {
+	return row.segments.reduce((sum, segment) => sum + segmentColumns(segment), 0)
+}
+
+function drawRow(row: TextRow) {
 	const ctx = row.canvas.getContext('2d')
 	if (!ctx) {
 		return
 	}
 
-	const charHeight = Math.max(
-		...row.segments.map(({ style }) => style.charHeight),
-	)
-	const fontSize = baseFontSize * charHeight
+	const largest = row.segments.reduce((a, b) =>
+		b.style.charHeight > a.style.charHeight ? b : a
+	).style
 	// Resizing clears the canvas, so the whole row is redrawn each time.
 	row.canvas.width = printerWidth
-	row.canvas.height = rowHeight(charHeight)
+	row.canvas.height = rowHeight(largest.charHeight)
 
-	const widths = row.segments.map(({ text, style }) => {
-		ctx.font = segmentFont(style)
-		return ctx.measureText(text).width * style.charWidth
-	})
-	const rowWidth = widths.reduce((sum, width) => sum + width, 0)
+	// Center the largest font's ascent and descent in the row, so descenders
+	// are not clipped. Smaller text shares the baseline and sits on the bottom.
+	ctx.font = segmentFont(largest)
+	const metrics = ctx.measureText('Mg')
+	const ascent = metrics.fontBoundingBoxAscent
+	const descent = metrics.fontBoundingBoxDescent
+	const baseline = Math.round((row.canvas.height + ascent - descent) / 2)
 
 	// Printers apply alignment per line, so the row's first segment decides it.
 	const alignment = row.segments[0].style.alignment
+	const rowWidth = rowColumns(row) * cellWidth
 	let x = alignment === Alignment.Center
 		? (printerWidth - rowWidth) / 2
 		: alignment === Alignment.Right
@@ -156,37 +175,61 @@ function drawRow(row: { canvas: HTMLCanvasElement; segments: TextSegment[] }) {
 		: 0
 
 	ctx.textAlign = 'left'
-	row.segments.forEach(({ text, style }, index) => {
+	row.segments.forEach((segment) => {
+		const { text, style } = segment
+		const width = segmentColumns(segment) * cellWidth
 		ctx.font = segmentFont(style)
 		if (style.reversePrinting) {
 			ctx.fillStyle = 'black'
-			ctx.fillRect(x, 0, widths[index], row.canvas.height)
+			ctx.fillRect(x, 0, width, row.canvas.height)
 			ctx.fillStyle = 'white'
 		} else {
 			ctx.fillStyle = 'black'
 		}
-		// Double-width characters are the same glyphs stretched horizontally.
-		// Shared baseline, so smaller text sits on the bottom like on paper.
+		// Stretch the monospace advance to the cell grid. Double-width
+		// characters are the same glyphs stretched to two cells.
+		const advance = ctx.measureText('0').width
 		ctx.save()
-		ctx.translate(x, fontSize)
-		ctx.scale(style.charWidth, 1)
+		ctx.translate(x, baseline)
+		ctx.scale((cellWidth * style.charWidth) / advance, 1)
 		ctx.fillText(text, 0, 0)
 		ctx.restore()
-		x += widths[index]
+		// ESC - selects a 1 or 2 dot underline. Like on Epson printers, it is
+		// not printed under reversed text.
+		if (style.underline > 0 && !style.reversePrinting) {
+			ctx.fillRect(
+				x,
+				Math.round(baseline + descent / 2),
+				width,
+				style.underline,
+			)
+		}
+		x += width
 	})
 }
 
 function appendText(text: string, style: EscPosText) {
-	if (openRow) {
-		openRow.segments.push({ text, style })
-	} else {
-		openRow = {
-			canvas: document.createElement('canvas'),
-			segments: [{ text, style }],
+	while (text.length > 0) {
+		const freeColumns = columns - (openRow ? rowColumns(openRow) : 0)
+		const fittingChars = Math.floor(freeColumns / style.charWidth)
+		if (openRow && fittingChars === 0) {
+			// The line is full, so the printer prints it and continues on the next.
+			openRow = null
+			continue
 		}
-		paperContent.appendChild(openRow.canvas)
+		const part = text.slice(0, Math.max(fittingChars, 1))
+		text = text.slice(part.length)
+		if (openRow) {
+			openRow.segments.push({ text: part, style })
+		} else {
+			openRow = {
+				canvas: document.createElement('canvas'),
+				segments: [{ text: part, style }],
+			}
+			paperContent.appendChild(openRow.canvas)
+		}
+		drawRow(openRow)
 	}
-	drawRow(openRow)
 }
 
 // Blank paper, scaled exactly like a text row canvas of the same height.
@@ -243,7 +286,9 @@ function connectWebSocket(): void {
 			openRow = null
 		} else if (isEscPosText(data)) {
 			lastCharHeight = data.charHeight
-			data.content.split(/(\n)/).forEach((part) => {
+			// CR is ignored, as on printers without auto line feed. CRLF line
+			// endings would otherwise take up a column before every LF.
+			data.content.replace(/\r/g, '').split(/(\n)/).forEach((part) => {
 				if (part === '\n') {
 					lineFeed(data.charHeight)
 				} else if (part !== '') {
