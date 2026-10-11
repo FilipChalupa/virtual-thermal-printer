@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import iconv from 'iconv-lite'
-import { EscPosTransformer, parseEscPos, PrinterState } from './transformer.js'
+import { defaultTabStops, EscPosTransformer, parseEscPos, PrinterState } from './transformer.js'
 import { Alignment, ParsedEscPosBlock } from './types.js'
 
 function makeState(): PrinterState {
@@ -13,6 +13,9 @@ function makeState(): PrinterState {
 		emphasized: false,
 		underline: 0,
 		reversePrinting: false,
+		font: 0,
+		rightSpacing: 0,
+		tabStops: defaultTabStops,
 		qrModel: 2,
 		qrModuleSize: 3,
 		qrErrorCorrection: 'L',
@@ -112,6 +115,11 @@ describe('parseEscPos', () => {
 			charWidth: 1,
 			charHeight: 1,
 			reversePrinting: false,
+			font: 0,
+			rightSpacing: 0,
+			leftMargin: 0,
+			printAreaWidth: 0,
+			tabStops: defaultTabStops,
 		})
 	})
 
@@ -127,6 +135,11 @@ describe('parseEscPos', () => {
 			charWidth: 1,
 			charHeight: 1,
 			reversePrinting: false,
+			font: 0,
+			rightSpacing: 0,
+			leftMargin: 0,
+			printAreaWidth: 0,
+			tabStops: defaultTabStops,
 		})
 	})
 
@@ -184,6 +197,70 @@ describe('parseEscPos', () => {
 		expect(state).toMatchObject({ emphasized: true, charHeight: 2, charWidth: 2, underline: 1 })
 		await parseEscPos(new Uint8Array([0x1b, 0x21, 0x00]), state)
 		expect(state).toMatchObject({ emphasized: false, charHeight: 1, charWidth: 1, underline: 0 })
+	})
+
+	it('Select Character Font (ESC M) accepts ASCII parameters', async () => {
+		for (const [byte, expected] of [[0x00, 0], [0x01, 1], [0x30, 0], [0x31, 1], [0x02, 0]]) {
+			const state = makeState()
+			await parseEscPos(new Uint8Array([0x1b, 0x4d, byte]), state)
+			expect(state.font).toBe(expected)
+		}
+	})
+
+	it('Set Font (ESC !) selects Font B with bit 0', async () => {
+		const state = makeState()
+		await parseEscPos(new Uint8Array([0x1b, 0x21, 0x01]), state)
+		expect(state.font).toBe(1)
+	})
+
+	it('Set Right-Side Character Spacing (ESC SP)', async () => {
+		const state = makeState()
+		await parseEscPos(new Uint8Array([0x1b, 0x20, 0x04]), state)
+		expect(state.rightSpacing).toBe(4)
+	})
+
+	it('Set Horizontal Tab Positions (ESC D)', async () => {
+		const state = makeState()
+		const result = await parseEscPos(new Uint8Array([0x1b, 0x44, 10, 20, 0x00, 0x41]), state)
+		expect(result).toEqual({
+			data: { type: 'command', name: 'Set Horizontal Tab Positions', details: { stops: [10, 20] } },
+			consumedBytes: 5,
+		})
+		expect(state.tabStops).toEqual([10, 20])
+	})
+
+	it('Set Horizontal Tab Positions (ESC D NUL) clears all stops', async () => {
+		const state = makeState()
+		const result = await parseEscPos(new Uint8Array([0x1b, 0x44, 0x00]), state)
+		expect(result.consumedBytes).toBe(3)
+		expect(state.tabStops).toEqual([])
+	})
+
+	it('Set Horizontal Tab Positions (ESC D) waits for its NUL', async () => {
+		const state = makeState()
+		const result = await parseEscPos(new Uint8Array([0x1b, 0x44, 10, 20]), state)
+		expect(result).toEqual({ data: null, consumedBytes: 0 })
+		expect(state.tabStops).toEqual(defaultTabStops)
+	})
+
+	it('Text blocks carry the layout state', async () => {
+		const state = makeState()
+		await parseEscPos(new Uint8Array([0x1d, 0x4c, 0x20, 0x00]), state)
+		await parseEscPos(new Uint8Array([0x1d, 0x57, 0x00, 0x02]), state)
+		await parseEscPos(new Uint8Array([0x1b, 0x4d, 0x01]), state)
+		const result = await parseEscPos(new Uint8Array([0x41, 0x0a]), state)
+		expect(result.data).toMatchObject({
+			content: 'A', font: 1, leftMargin: 32, printAreaWidth: 512,
+		})
+	})
+
+	it('Initialize Printer resets the layout state', async () => {
+		const state = makeState()
+		await parseEscPos(new Uint8Array([0x1b, 0x4d, 0x01]), state)
+		await parseEscPos(new Uint8Array([0x1b, 0x20, 0x04]), state)
+		await parseEscPos(new Uint8Array([0x1b, 0x44, 0x00]), state)
+		await parseEscPos(new Uint8Array([0x1b, 0x40]), state)
+		expect(state).toMatchObject({ font: 0, rightSpacing: 0, tabStops: defaultTabStops })
 	})
 
 	it('Set Char Size', async () => {
