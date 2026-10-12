@@ -1,3 +1,4 @@
+import bwipjs from 'bwip-js'
 import iconv from 'iconv-lite'
 import { PNG } from 'pngjs'
 import QRCode from 'qrcode'
@@ -18,6 +19,13 @@ export interface PrinterState {
 	rightSpacing: number
 	tabStops: number[]
 	lineSpacing: number | null
+	doubleStrike: boolean
+	upsideDown: boolean
+	rotated: boolean
+	barcodeHeight: number
+	barcodeWidth: number
+	hriPosition: number
+	hriFont: number
 	qrModel: number
 	qrModuleSize: number
 	qrErrorCorrection: QrErrorCorrectionLevel
@@ -50,6 +58,9 @@ function textStyle(state: PrinterState): Omit<EscPosText, 'type' | 'content'> {
 		printAreaWidth: state.printAreaWidth,
 		tabStops: state.tabStops,
 		lineSpacing: state.lineSpacing,
+		doubleStrike: state.doubleStrike,
+		upsideDown: state.upsideDown,
+		rotated: state.rotated,
 	}
 }
 
@@ -61,32 +72,25 @@ const ignoredEscCommands: Record<number, [name: string, params: number]> = {
 	0x3c: ['Return Home', 0],
 	0x3d: ['Select Peripheral Device', 1],
 	0x3f: ['Cancel User-Defined Characters', 1],
-	0x47: ['Set Double-Strike Mode', 1],
 	0x52: ['Select International Character Set', 1],
 	0x55: ['Set Unidirectional Printing', 1],
-	0x56: ['Set 90° Rotation', 1],
 	0x63: ['Select Paper Sensor or Panel Buttons', 2],
-	0x65: ['Print and Reverse Feed Lines', 1],
 	0x72: ['Select Print Color', 1],
 	0x75: ['Transmit Peripheral Device Status', 1],
 	0x76: ['Transmit Paper Sensor Status', 0],
-	0x7b: ['Set Upside-Down Printing', 1],
 }
 
 const ignoredGsCommands: Record<number, [name: string, params: number]> = {
 	0x2f: ['Print Downloaded Bit Image', 1],
 	0x3a: ['Start or End Macro Definition', 0],
-	0x48: ['Select HRI Character Position', 1],
 	0x49: ['Transmit Printer ID', 1],
 	0x50: ['Set Motion Units', 2],
 	0x54: ['Set Print Position to Line Start', 1],
 	0x5e: ['Execute Macro', 3],
 	0x61: ['Enable Automatic Status Back', 1],
 	0x62: ['Set Smoothing Mode', 1],
-	0x66: ['Select HRI Font', 1],
 	0x67: ['Maintenance Counter', 4],
 	0x72: ['Transmit Status', 1],
-	0x77: ['Set Barcode Width', 1],
 }
 
 const ignoredFsCommands: Record<number, [name: string, params: number]> = {
@@ -227,6 +231,160 @@ async function renderQrAsImage(
 	return image
 }
 
+// Character cell heights in dots for HRI text: Font A 24, Font B 17.
+const fontCellHeights = [24, 17]
+
+// GS k symbologies by m, format A (0–6) and format B (65–79), as bwip-js
+// encoder names. GS1-128 (74) and GS1 DataBar Expanded (78) need their
+// application identifiers parsed and are not rendered.
+const barcodeTypes: Record<number, string> = {
+	0: 'upca',
+	1: 'upce',
+	2: 'ean13',
+	3: 'ean8',
+	4: 'code39',
+	5: 'interleaved2of5',
+	6: 'rationalizedCodabar',
+	65: 'upca',
+	66: 'upce',
+	67: 'ean13',
+	68: 'ean8',
+	69: 'code39',
+	70: 'interleaved2of5',
+	71: 'rationalizedCodabar',
+	72: 'code93ext',
+	73: 'code128',
+	75: 'databaromni',
+	76: 'databartruncated',
+	77: 'databarlimited',
+	79: 'code128',
+}
+
+// Mod-10 check digit used by GTIN based symbologies.
+function gtinCheckDigit(digits: string): string {
+	const sum = [...digits].reverse().reduce(
+		(total, digit, index) => total + Number(digit) * (index % 2 === 0 ? 3 : 1),
+		0,
+	)
+	return String((10 - (sum % 10)) % 10)
+}
+
+// ESC/POS CODE128 data selects code sets with {A, {B and {C, and FNC codes
+// with {1–{4. In code set C each byte is a pair of digits. bwip-js picks
+// the code sets itself, so only the encoded characters are kept.
+function code128Text(data: Uint8Array): string {
+	let text = ''
+	let codeSet = 'B'
+	for (let i = 0; i < data.length; i++) {
+		const byte = data[i]
+		if (byte === 0x7b && i + 1 < data.length) {
+			const next = String.fromCharCode(data[++i])
+			if ('ABC'.includes(next)) {
+				codeSet = next
+			} else if ('1234'.includes(next)) {
+				text += `^FNC${next}`
+			} else if (next === '{') {
+				text += '{'
+			}
+			continue
+		}
+		if (codeSet === 'C') {
+			text += String(byte).padStart(2, '0')
+		} else if (byte === 0x5e) {
+			text += '^094' // A literal caret, escaped for parsing.
+		} else {
+			text += String.fromCharCode(byte)
+		}
+	}
+	return text
+}
+
+function barcodeText(barcodeType: number, data: Uint8Array): string {
+	const text = String.fromCharCode(...data)
+	switch (barcodeTypes[barcodeType]) {
+		case 'upce':
+			// Six digits omit the number system, which is 0.
+			return text.length === 6 ? `0${text}` : text
+		case 'code39':
+			// The printer adds the * start and stop characters itself.
+			return text.replace(/^\*|\*$/g, '')
+		case 'rationalizedCodabar':
+			return text.toUpperCase()
+		case 'databaromni':
+		case 'databartruncated':
+		case 'databarlimited': {
+			// 13 digits of the GTIN, without application identifier and check digit.
+			const gtin = text.slice(0, 13)
+			return `(01)${gtin}${gtinCheckDigit(gtin)}`
+		}
+		case 'code128':
+			return barcodeType === 73 ? code128Text(data) : text.replace(/\^/g, '^094')
+		default:
+			return text
+	}
+}
+
+async function renderBarcode(
+	state: PrinterState,
+	barcodeType: number,
+	data: Uint8Array,
+): Promise<ParsedEscPosBlock> {
+	const bcid = barcodeTypes[barcodeType]
+	const barcodeData = String.fromCharCode(...data)
+	if (!bcid) {
+		return {
+			type: 'command',
+			name: 'Print Barcode',
+			details: { barcodeType, barcodeData, error: 'Unsupported barcode type' },
+		}
+	}
+	// GS w sets the module width in dots and GS h the bar height in dots.
+	// bwip-js takes the height in millimetres at 72 dpi before scaling and
+	// adds one row, which the - 1 compensates.
+	const scale = state.barcodeWidth
+	const hri = state.hriPosition
+	// EAN and UPC lay their digits out between the guard bars below the
+	// symbol; any text placement option replaces that with plain text.
+	const isRetail = /^(ean|upc)/.test(bcid)
+	const textOptions = hri === 0
+		? { includetext: false }
+		: isRetail && hri !== 1
+		? { includetext: true }
+		: {
+			includetext: true,
+			// GS H: 1 above, 2 below, 3 both (rendered below).
+			textyalign: hri === 1 ? 'above' as const : 'below' as const,
+			textsize: fontCellHeights[state.hriFont] / scale,
+		}
+	try {
+		const pngBuffer = await bwipjs.toBuffer({
+			bcid,
+			text: barcodeText(barcodeType, data),
+			scale,
+			height: ((state.barcodeHeight - 1) / scale) * (25.4 / 72),
+			parse: bcid === 'code128',
+			parsefnc: bcid === 'code128',
+			...textOptions,
+			guardwhitespace: false,
+		})
+		const png = PNG.sync.read(pngBuffer)
+		return {
+			type: 'image',
+			width: png.width,
+			height: png.height,
+			base64: `data:image/png;base64,${pngBuffer.toString('base64')}`,
+			alignment: state.alignment,
+		}
+	} catch (error) {
+		// Invalid data for the symbology: the printer prints nothing.
+		return {
+			type: 'command',
+			name: 'Print Barcode',
+			details: { barcodeType, barcodeData, error: String(error) },
+		}
+	}
+}
+
 export async function parseEscPos(
 	command: Uint8Array,
 	state: PrinterState,
@@ -339,6 +497,13 @@ export async function parseEscPos(
 						state.rightSpacing = 0
 						state.tabStops = defaultTabStops
 						state.lineSpacing = null
+						state.doubleStrike = false
+						state.upsideDown = false
+						state.rotated = false
+						state.barcodeHeight = 162
+						state.barcodeWidth = 3
+						state.hriPosition = 0
+						state.hriFont = 0
 						state.qrModel = 2
 						state.qrModuleSize = 3
 						state.qrErrorCorrection = 'L'
@@ -603,6 +768,60 @@ export async function parseEscPos(
 							return { data: null, consumedBytes: 0 }
 						}
 						break
+					case 0x47: // G - Set double-strike mode
+						if (command.length >= 3) {
+							// Only the lowest bit counts, so ASCII '0' and '1' work too.
+							state.doubleStrike = (command[2] & 0x01) !== 0
+							parsedBlock = {
+								type: 'command',
+								name: 'Set Double-Strike Mode',
+								details: { doubleStrike: state.doubleStrike },
+							}
+							consumedBytes = 3
+						} else {
+							return { data: null, consumedBytes: 0 }
+						}
+						break
+					case 0x7b: // { - Set upside-down printing
+						if (command.length >= 3) {
+							state.upsideDown = (command[2] & 0x01) !== 0
+							parsedBlock = {
+								type: 'command',
+								name: 'Set Upside-Down Printing',
+								details: { upsideDown: state.upsideDown },
+							}
+							consumedBytes = 3
+						} else {
+							return { data: null, consumedBytes: 0 }
+						}
+						break
+					case 0x56: // V - Set 90° clockwise rotation
+						if (command.length >= 3) {
+							// 1/'1' and 2/'2' turn it on (with 1 or 1.5 dot spacing).
+							const mode = command[2] & 0x0f
+							state.rotated = mode === 1 || mode === 2
+							parsedBlock = {
+								type: 'command',
+								name: 'Set 90° Rotation',
+								details: { rotated: state.rotated },
+							}
+							consumedBytes = 3
+						} else {
+							return { data: null, consumedBytes: 0 }
+						}
+						break
+					case 0x65: // e - Print and reverse feed n lines
+						if (command.length >= 3) {
+							parsedBlock = {
+								type: 'command',
+								name: 'Print and Reverse Feed Lines',
+								details: { lines: command[2], lineSpacing: state.lineSpacing },
+							}
+							consumedBytes = 3
+						} else {
+							return { data: null, consumedBytes: 0 }
+						}
+						break
 					case 0x32: // 2 - Select default line spacing
 						state.lineSpacing = null
 						parsedBlock = { type: 'command', name: 'Select Default Line Spacing' }
@@ -857,6 +1076,9 @@ export async function parseEscPos(
 					case 0x68: // h - Set barcode height
 						if (command.length >= 3) {
 							const height = command[2]
+							if (height > 0) {
+								state.barcodeHeight = height
+							}
 							parsedBlock = {
 								type: 'command',
 								name: 'Set Barcode Height',
@@ -892,16 +1114,11 @@ export async function parseEscPos(
 							if (command.length < consumedBytes) {
 								return { data: null, consumedBytes: 0 }
 							}
-							parsedBlock = {
-								type: 'command',
-								name: 'Print Barcode',
-								details: {
-									barcodeType,
-									barcodeData: String.fromCharCode(
-										...command.subarray(dataStart, dataEnd),
-									),
-								},
-							}
+							parsedBlock = await renderBarcode(
+								state,
+								barcodeType,
+								command.subarray(dataStart, dataEnd),
+							)
 						} else {
 							return { data: null, consumedBytes: 0 }
 						}
@@ -1003,6 +1220,46 @@ export async function parseEscPos(
 						}
 						break
 					}
+					case 0x77: // w - Set barcode module width
+						if (command.length >= 3) {
+							state.barcodeWidth = Math.min(Math.max(command[2], 1), 6)
+							parsedBlock = {
+								type: 'command',
+								name: 'Set Barcode Width',
+								details: { width: state.barcodeWidth },
+							}
+							consumedBytes = 3
+						} else {
+							return { data: null, consumedBytes: 0 }
+						}
+						break
+					case 0x48: // H - Select HRI character print position
+						if (command.length >= 3) {
+							// 0–3 or ASCII '0'–'3': none, above, below, both.
+							state.hriPosition = command[2] & 0x03
+							parsedBlock = {
+								type: 'command',
+								name: 'Select HRI Character Position',
+								details: { position: state.hriPosition },
+							}
+							consumedBytes = 3
+						} else {
+							return { data: null, consumedBytes: 0 }
+						}
+						break
+					case 0x66: // f - Select HRI font
+						if (command.length >= 3) {
+							state.hriFont = command[2] & 0x01
+							parsedBlock = {
+								type: 'command',
+								name: 'Select HRI Font',
+								details: { font: state.hriFont },
+							}
+							consumedBytes = 3
+						} else {
+							return { data: null, consumedBytes: 0 }
+						}
+						break
 					case 0x24: // $ - Set absolute vertical print position in page mode
 						if (command.length >= 4) {
 							parsedBlock = {
@@ -1134,6 +1391,13 @@ export class EscPosTransformer
 			rightSpacing: 0,
 			tabStops: defaultTabStops,
 			lineSpacing: null,
+			doubleStrike: false,
+			upsideDown: false,
+			rotated: false,
+			barcodeHeight: 162,
+			barcodeWidth: 3,
+			hriPosition: 0,
+			hriFont: 0,
 			qrModel: 2,
 			qrModuleSize: 3,
 			qrErrorCorrection: 'L',
